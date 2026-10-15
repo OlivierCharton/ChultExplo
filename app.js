@@ -121,7 +121,8 @@ class ChultMapApp {
     this.maskHoles = document.getElementById('mask-holes');
     this.maskVisible = document.getElementById('mask-visible');
     this.gridLinesLayer = document.getElementById('grid-lines-layer');
-    this.gridInteractiveLayer = document.getElementById('grid-interactive-layer');
+    this.hoverLayer = document.getElementById('hover-layer');
+    this.flashLayer = document.getElementById('flash-layer');
     this.dmGhostLayer = document.getElementById('dm-ghost-layer');
     this.poiLayer = document.getElementById('poi-layer');
     this.poiPatchesLayer = document.getElementById('poi-patches-layer');
@@ -177,7 +178,6 @@ class ChultMapApp {
 
   initHexGrid() {
     const gridLinesFragment = document.createDocumentFragment();
-    const gridInteractiveFragment = document.createDocumentFragment();
 
     // Seules les cases sous le voile existent : les autres sont visibles et inertes.
     FOG_HEX_KEYS.forEach(key => {
@@ -194,20 +194,9 @@ class ChultMapApp {
       linePoly.setAttribute('points', pointsStr);
       linePoly.setAttribute('id', `grid-line-${q}-${r}`);
       gridLinesFragment.appendChild(linePoly);
-
-      // Cellule interactive
-      const interactivePoly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-      interactivePoly.setAttribute('points', pointsStr);
-      interactivePoly.setAttribute('id', `hex-cell-${q}-${r}`);
-      interactivePoly.setAttribute('class', 'hex-cell');
-      interactivePoly.dataset.q = q;
-      interactivePoly.dataset.r = r;
-      interactivePoly.dataset.key = key;
-      gridInteractiveFragment.appendChild(interactivePoly);
     });
 
     this.gridLinesLayer.appendChild(gridLinesFragment);
-    this.gridInteractiveLayer.appendChild(gridInteractiveFragment);
 
     // Cases de légende : trous permanents dans le masque (carte complète), sans interaction.
     const visibleFragment = document.createDocumentFragment();
@@ -555,12 +544,13 @@ class ChultMapApp {
   }
 
   flashHex(q, r) {
-    const cell = document.getElementById(`hex-cell-${q}-${r}`);
-    if (cell) {
-      cell.classList.remove('hex-flash-reveal');
-      void cell.offsetWidth;
-      cell.classList.add('hex-flash-reveal');
-    }
+    const hex = this.allHexMap.get(`${q},${r}`);
+    if (!hex) return;
+    const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+    poly.setAttribute('points', hex.pointsStr);
+    poly.setAttribute('class', 'hex-flash-reveal');
+    poly.addEventListener('animationend', () => poly.remove());
+    this.flashLayer.appendChild(poly);
   }
 
   updateTransform() {
@@ -666,43 +656,46 @@ class ChultMapApp {
       }
     });
 
-    this.gridInteractiveLayer.addEventListener('click', (e) => {
+    this.svg.addEventListener('click', (e) => {
       if (this.hasDragged) return;
-      const target = e.target.closest('.hex-cell');
-      if (!target) return;
-
-      const q = parseInt(target.dataset.q, 10);
-      const r = parseInt(target.dataset.r, 10);
-      const isCtrl = e.ctrlKey || e.metaKey;
-      this.applyTool(q, r, isCtrl);
+      const hex = this.eventToHex(e);
+      if (!hex) return;
+      this.applyTool(hex.q, hex.r, e.ctrlKey || e.metaKey);
     });
 
-    this.gridInteractiveLayer.addEventListener('contextmenu', (e) => {
+    this.svg.addEventListener('contextmenu', (e) => {
       e.preventDefault();
-      const target = e.target.closest('.hex-cell');
-      if (!target) return;
-
-      const q = parseInt(target.dataset.q, 10);
-      const r = parseInt(target.dataset.r, 10);
-      this.applyTool(q, r, true);
+      const hex = this.eventToHex(e);
+      if (!hex) return;
+      this.applyTool(hex.q, hex.r, true);
     });
 
-    this.gridInteractiveLayer.addEventListener('mouseover', (e) => {
-      const target = e.target.closest('.hex-cell');
-      if (!target) return;
-
-      const q = parseInt(target.dataset.q, 10);
-      const r = parseInt(target.dataset.r, 10);
-      this.updateHudHover(q, r);
-      this.updateBrushHover(q, r);
+    this.svg.addEventListener('mousemove', (e) => {
+      if (this.isDragging) {
+        this.renderHover(null, false);
+        return;
+      }
+      const hex = this.eventToHex(e);
+      this.hoveredHex = hex;
+      if (hex) this.updateHudHover(hex.q, hex.r);
+      this.renderHover(hex, e.ctrlKey || e.metaKey);
     });
 
-    this.gridInteractiveLayer.addEventListener('mouseleave', () => {
-      this.clearBrushHover();
+    this.svg.addEventListener('mouseleave', () => {
+      this.hoveredHex = null;
+      this.renderHover(null, false);
       this.hudCoords.textContent = '🧭 Hex: —';
       this.hudStatus.textContent = 'Statut: —';
       this.hudPoi.textContent = 'Lieu: Aucun';
     });
+
+    const onCtrlChange = (e) => {
+      if (e.key === 'Control' || e.key === 'Meta') {
+        this.renderHover(this.hoveredHex, e.ctrlKey || e.metaKey);
+      }
+    };
+    window.addEventListener('keydown', onCtrlChange);
+    window.addEventListener('keyup', onCtrlChange);
 
     let touchStartDist = null;
     let touchStartMidX = 0;
@@ -852,6 +845,7 @@ class ChultMapApp {
 
   setMode(newMode) {
     this.mode = newMode;
+    this.renderHover(null, false);
     document.body.className = `mode-${newMode}`;
     this.modeMjBtn.classList.toggle('active', newMode === 'mj');
     this.modePlayerBtn.classList.toggle('active', newMode === 'player');
@@ -918,19 +912,42 @@ class ChultMapApp {
     }
   }
 
-  updateBrushHover(centerQ, centerR) {
-    this.clearBrushHover();
-    if (this.mode !== 'mj' || this.brushRadius <= 0) return;
-
-    const neighbors = HexMath.getNeighborsWithinRadius(centerQ, centerR, this.brushRadius);
-    neighbors.forEach(({ q, r }) => {
-      const el = document.getElementById(`hex-cell-${q}-${r}`);
-      if (el) el.classList.add('brush-hover');
-    });
+  // Case du brouillard sous la souris (null si hors brouillard), calculée sans polygone
+  eventToHex(e) {
+    const rect = this.viewport.getBoundingClientRect();
+    const x = (e.clientX - rect.left - this.panX) / this.zoom;
+    const y = (e.clientY - rect.top - this.panY) / this.zoom;
+    const { q, r } = HexGeometry.hexAt(x, y);
+    const key = `${q},${r}`;
+    return this.fogKeys.has(key) ? { q, r, key } : null;
   }
 
-  clearBrushHover() {
-    document.querySelectorAll('.brush-hover').forEach(el => el.classList.remove('brush-hover'));
+  // La case changerait-elle d'état avec l'outil en cours (ou Ctrl = masquer) ?
+  wouldChange(key, ctrl) {
+    const revealed = this.revealedHexSet.has(key);
+    if (ctrl) return revealed;
+    if (this.currentTool === 'reveal') return !revealed;
+    if (this.currentTool === 'hide') return revealed;
+    return true;
+  }
+
+  renderHover(hex, ctrl) {
+    this.hoverLayer.innerHTML = '';
+    this.svg.style.cursor = '';
+    if (this.mode !== 'mj' || !hex) return;
+
+    const fragment = document.createDocumentFragment();
+    HexMath.getNeighborsWithinRadius(hex.q, hex.r, this.brushRadius).forEach(({ q, r }) => {
+      const cell = this.allHexMap.get(`${q},${r}`);
+      if (!cell || !this.wouldChange(cell.key, ctrl)) return;
+      const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+      poly.setAttribute('points', cell.pointsStr);
+      fragment.appendChild(poly);
+    });
+    if (fragment.childNodes.length > 0) {
+      this.hoverLayer.appendChild(fragment);
+      this.svg.style.cursor = 'pointer';
+    }
   }
 
   getExploredCount() {

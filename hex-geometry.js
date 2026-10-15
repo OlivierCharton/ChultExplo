@@ -48,6 +48,23 @@
     return dy <= Math.sqrt(3) * (radius - dx);
   }
 
+  // Case dont le centre est le plus proche du point (x, y), en coordonnées carte
+  function hexAt(x, y) {
+    const q0 = Math.round((x - GRID.x0) / GRID.dx);
+    let best = null;
+    let bestD = Infinity;
+    for (let q = q0 - 1; q <= q0 + 1; q++) {
+      const shift = (Math.abs(q) % 2 === 1) ? GRID.dy / 2 : 0;
+      const r0 = Math.round((y - GRID.y0 - shift) / GRID.dy);
+      for (let r = r0 - 1; r <= r0 + 1; r++) {
+        const { cx, cy } = getCenter(q, r);
+        const d = (cx - x) ** 2 + (cy - y) ** 2;
+        if (d < bestD) { bestD = d; best = { q, r }; }
+      }
+    }
+    return best;
+  }
+
   function enumerateHexes() {
     const hexes = [];
     for (let q = 0; ; q++) {
@@ -62,5 +79,5 @@
     return hexes;
   }
 
-  return { GRID, getCenter, getPoints, containsPoint, enumerateHexes };
+  return { GRID, getCenter, getPoints, containsPoint, hexAt, enumerateHexes };
 });

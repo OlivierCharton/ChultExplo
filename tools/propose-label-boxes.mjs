@@ -2,11 +2,13 @@
  * Propose un rectangle de texte par lieu (tools/label-boxes.json) à partir de sa case centrale :
  * on cherche, près du centre de la case, la forme de texte (lettres + halo + symbole) et on prend son cadre.
  * C'est un point de départ : à vérifier sur Assets/labels-check-*.png (npm run labels) puis à corriger
- * à la main dans le JSON (rectangle, ou "params" propres au lieu). Usage : npm run labels:propose
+ * à la main dans le JSON (rectangle, ou "params" propres au lieu).
+ * Refuse d'écraser un tools/label-boxes.json existant (réglé à la main) sauf avec --force.
+ * Usage : npm run labels:propose [-- --force]
  */
 import sharp from 'sharp';
 import { createRequire } from 'node:module';
-import { writeFileSync } from 'node:fs';
+import { writeFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -25,6 +27,12 @@ const SEARCH = 70;     // distance max entre le centre de la case et le texte re
 const MARGIN = 6;      // marge ajoutée autour du texte (px)
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const out = path.join(root, 'tools', 'label-boxes.json');
+if (existsSync(out) && !process.argv.includes('--force')) {
+  console.error('tools/label-boxes.json existe déjà (rectangles réglés à la main) : il ne sera pas écrasé.');
+  console.error('Relance avec --force pour le remplacer : npm run labels:propose -- --force');
+  process.exit(1);
+}
 const file = path.join(root, 'carte-complete.jpg');
 const boxes = {};
 
@@ -89,5 +97,5 @@ for (const [id, poi] of Object.entries(pointsOfInterest)) {
 }
 
 const sorted = Object.fromEntries(Object.entries(boxes).sort(([a], [b]) => a.localeCompare(b)));
-writeFileSync(path.join(root, 'tools', 'label-boxes.json'), JSON.stringify(sorted, null, 2) + '\n');
+writeFileSync(out, JSON.stringify(sorted, null, 2) + '\n');
 console.log(`${Object.keys(sorted).length} rectangles écrits dans tools/label-boxes.json`);

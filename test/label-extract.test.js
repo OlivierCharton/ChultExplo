@@ -55,6 +55,17 @@ test('le masque ignore une ligne claire éloignée et un pixel sombre isolé', (
   assert.equal(m[85 * W + 125], 0);
 });
 
+test('le masque supprime une petite forme parasite (aire sous minTextArea)', () => {
+  const rgb = makeRegion();
+  const set = (x, y, c) => { const o = (y * W + x) * C; rgb[o] = c[0]; rgb[o + 1] = c[1]; rgb[o + 2] = c[2]; };
+  for (let y = 79; y <= 88; y++) for (let x = 169; x <= 178; x++) set(x, y, [245, 235, 225]); // halo de 3 px
+  for (let y = 82; y <= 85; y++) for (let x = 172; x <= 175; x++) set(x, y, [20, 20, 20]);    // petit symbole parasite
+  const m = buildTextMask(rgb, W, H, C, BOX);
+  assert.equal(m[83 * W + 173], 0);   // parasite supprimé
+  assert.equal(m[115 * W + 150], 1);  // grand libellé conservé
+  assert.equal(m[115 * W + 136], 1);
+});
+
 test('le masque reste dans le rectangle du lieu', () => {
   const small = { x: 140, y: 100, w: 20, h: 30 };
   const m = buildTextMask(makeRegion(), W, H, C, small);

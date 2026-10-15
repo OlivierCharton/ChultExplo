@@ -13,6 +13,7 @@ const DEFAULTS = Object.freeze({
   glyphTouch: 2,       // une forme sombre n'est retenue que si elle touche un halo à ≤ 2 px
   minGlyphArea: 12,    // aire minimale (px) d'une forme sombre retenue
   haloReach: 7,        // le halo ne compte qu'à ≤ 7 px d'une forme retenue
+  minTextArea: 900,    // aire minimale (px) d'une composante de texte retenue dans le masque
   closeGap: 2,         // fermeture des petits trous du masque (px)
   patchGrow: 3,        // la rustine déborde du texte de 3 px
   feather: 3,          // rayon du fondu de bord de la rustine (px)
@@ -130,6 +131,10 @@ function buildTextMask(rgb, width, height, channels, box, params = {}) {
   let text = new Uint8Array(n);
   for (let i = 0; i < n; i++) text[i] = (core[i] || (halo[i] && reach[i])) ? 1 : 0;
   text = erode(dilate(text, width, height, p.closeGap), width, height, p.closeGap);
+
+  // Petites composantes (fragments de terrain, hachures) écartées
+  const comp = components(text, width, height);
+  for (let i = 0; i < n; i++) if (text[i] && comp.sizes[comp.labels[i]] < p.minTextArea) text[i] = 0;
 
   // Confiné au rectangle du lieu
   const out = new Uint8Array(n);

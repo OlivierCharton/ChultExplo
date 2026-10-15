@@ -5,5 +5,8 @@
   "scripts": {
     "test": "node --test \"test/**/*.test.js\"",
     "fog": "node tools/compute-fog.mjs"
+  },
+  "devDependencies": {
+    "sharp": "^0.35.5"
   }
 }

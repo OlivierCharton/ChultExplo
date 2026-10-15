@@ -38,8 +38,8 @@ Date : 2026-10-15 · Branche : `wip`
 
 ### 3. Sauvegarde
 
-- Clé `chult_explo_save_v2`, `version: 2`.
-- Migration à la lecture : si seule la clé v1 existe, on conserve ses `revealedHexes` qui sont dans `FOG_HEX_KEYS`, on ignore les autres, puis on écrit en v2.
+- Aucun changement de format ni de clé (`chult_explo_save_v1`) : le site n'a pas encore été utilisé, donc aucune migration.
+- Par sécurité, le chargement (localStorage et import JSON) ignore les clés qui ne sont pas dans `FOG_HEX_KEYS`.
 - L'import d'un fichier JSON applique le même filtrage.
 
 ### 4. Nettoyage (listé à l'utilisateur avant toute suppression)
@@ -53,7 +53,7 @@ Date : 2026-10-15 · Branche : `wip`
 - Le script affiche le nombre de cases et produit `Assets/fog-check.png`. L'utilisateur juge la lisière à l'œil et ajuste le seuil si besoin.
 - Test navigateur : cliquer chaque case de lisière citée (Camp Vengeance, Mbala, Ataaz Kahakla, Kir Sabal, Valley of Dread) et vérifier qu'elle se révèle sans artefact.
 - Vérifier qu'une case visible au départ ne réagit ni au survol ni au clic, ni au Ctrl+clic ni au clic droit.
-- Vérifier la migration d'une sauvegarde v1 et l'import/export JSON.
+- Vérifier la sauvegarde automatique, l'import et l'export JSON.
 - Vérifier la fluidité du pan/zoom avec le nombre réel de cases. Si elle est insuffisante, regrouper les traits de grille en un seul `<path>`.
 
 ## Hors périmètre

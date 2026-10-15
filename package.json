@@ -1,0 +1,9 @@
+{
+  "name": "chult-explo",
+  "private": true,
+  "description": "Carte interactive de Chult avec brouillard de guerre hexagonal",
+  "scripts": {
+    "test": "node --test \"test/**/*.test.js\"",
+    "fog": "node tools/compute-fog.mjs"
+  }
+}

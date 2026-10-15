@@ -6,14 +6,9 @@
  */
 
 // 1. Configuration géométrique calibrée de la carte de Chult (6563 x 8925 px)
+// La géométrie de la grille vit dans hex-geometry.js (partagée avec tools/compute-fog.mjs).
 const MAP_CONFIG = {
-  width: 6563,
-  height: 8925,
-  dx: 83.51082968693343,
-  dy: 96.43,
-  x0: 56.7053015834631,
-  y0: 17.64,
-  R: 55.67388645795562,
+  ...HexGeometry.GRID,
   minZoom: 0.12,
   maxZoom: 2.5
 };
@@ -321,22 +316,11 @@ const HexMath = {
   h: Math.sqrt(3) * MAP_CONFIG.R,
 
   getCenter(q, r) {
-    const cx = MAP_CONFIG.x0 + q * MAP_CONFIG.dx;
-    const shift = (Math.abs(q) % 2 === 1) ? (MAP_CONFIG.dy / 2) : 0;
-    const cy = MAP_CONFIG.y0 + r * MAP_CONFIG.dy + shift;
-    return { cx, cy };
+    return HexGeometry.getCenter(q, r);
   },
 
   getPoints(cx, cy, radius = MAP_CONFIG.R) {
-    const h = Math.sqrt(3) * radius;
-    return [
-      { x: cx - radius / 2, y: cy - h / 2 },
-      { x: cx + radius / 2, y: cy - h / 2 },
-      { x: cx + radius,     y: cy },
-      { x: cx + radius / 2, y: cy + h / 2 },
-      { x: cx - radius / 2, y: cy + h / 2 },
-      { x: cx - radius,     y: cy }
-    ];
+    return HexGeometry.getPoints(cx, cy, radius);
   },
 
   getPointsString(cx, cy, radius = MAP_CONFIG.R) {

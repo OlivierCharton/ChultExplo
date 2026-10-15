@@ -106,6 +106,7 @@ class ChultMapApp {
     this.initDOM();
     this.initHexGrid();
     this.renderPoiPatches();
+    this.initPoiLabels();
     this.loadState();
     this.initEvents();
     this.fitToScreen();
@@ -354,15 +355,24 @@ class ChultMapApp {
   }
 
   // Texte et croix des lieux découverts, au-dessus du brouillard
-  renderPoiLabels() {
-    this.poiLabelsLayer.innerHTML = '';
+  initPoiLabels() {
     const fragment = document.createDocumentFragment();
-    Object.entries(this.pois).forEach(([id, poi]) => {
+    Object.keys(this.pois).forEach(id => {
       const label = POI_LABELS[id];
-      if (!poi.revealed || !label) return;
-      fragment.appendChild(this.makeLabelImage(`Assets/labels/${id}-text.png`, label, `poi-text-${id}`));
+      if (!label) return;
+      const img = this.makeLabelImage(`Assets/labels/${id}-text.png`, label, `poi-text-${id}`);
+      img.style.display = 'none';
+      fragment.appendChild(img);
     });
     this.poiLabelsLayer.appendChild(fragment);
+  }
+
+  // Les images sont créées une fois : on ne fait que les afficher ou les masquer (pas de scintillement)
+  renderPoiLabels() {
+    Object.entries(this.pois).forEach(([id, poi]) => {
+      const img = document.getElementById(`poi-text-${id}`);
+      if (img) img.style.display = poi.revealed ? '' : 'none';
+    });
   }
 
   renderPoiMarkers() {
@@ -661,6 +671,7 @@ class ChultMapApp {
       const hex = this.eventToHex(e);
       if (!hex) return;
       this.applyTool(hex.q, hex.r, e.ctrlKey || e.metaKey);
+      this.renderHover(this.hoveredHex, e.ctrlKey || e.metaKey);
     });
 
     this.svg.addEventListener('contextmenu', (e) => {
@@ -668,6 +679,7 @@ class ChultMapApp {
       const hex = this.eventToHex(e);
       if (!hex) return;
       this.applyTool(hex.q, hex.r, true);
+      this.renderHover(this.hoveredHex, e.ctrlKey || e.metaKey);
     });
 
     this.svg.addEventListener('mousemove', (e) => {
@@ -678,15 +690,14 @@ class ChultMapApp {
       const hex = this.eventToHex(e);
       this.hoveredHex = hex;
       if (hex) this.updateHudHover(hex.q, hex.r);
+      else this.resetHud();
       this.renderHover(hex, e.ctrlKey || e.metaKey);
     });
 
     this.svg.addEventListener('mouseleave', () => {
       this.hoveredHex = null;
       this.renderHover(null, false);
-      this.hudCoords.textContent = '🧭 Hex: —';
-      this.hudStatus.textContent = 'Statut: —';
-      this.hudPoi.textContent = 'Lieu: Aucun';
+      this.resetHud();
     });
 
     const onCtrlChange = (e) => {
@@ -769,6 +780,7 @@ class ChultMapApp {
         document.querySelectorAll('.action-tool-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         this.currentTool = btn.dataset.tool;
+        this.renderHover(this.hoveredHex, false);
       });
     });
 
@@ -781,6 +793,7 @@ class ChultMapApp {
         if (this.brushRadius === 0) descEl.textContent = '1 case';
         else if (this.brushRadius === 1) descEl.textContent = '7 cases';
         else descEl.textContent = '19 cases';
+        this.renderHover(this.hoveredHex, false);
       });
     });
 
@@ -910,6 +923,12 @@ class ChultMapApp {
     } else {
       this.hudPoi.textContent = 'Lieu: Jungle sauvage';
     }
+  }
+
+  resetHud() {
+    this.hudCoords.textContent = '🧭 Hex: —';
+    this.hudStatus.textContent = 'Statut: —';
+    this.hudPoi.textContent = 'Lieu: Aucun';
   }
 
   // Case du brouillard sous la souris (null si hors brouillard), calculée sans polygone

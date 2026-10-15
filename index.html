@@ -47,8 +47,14 @@
           <!-- Layer 1 (Background): Complete DM map with all geographic details and secrets -->
           <image id="img-complete" href="carte-complete.jpg" xlink:href="carte-complete.jpg" width="6563" height="8925" preserveAspectRatio="none" />
 
+          <!-- Layer 1b: Rustines de texture qui recouvrent le texte imprimé des lieux (sous le brouillard) -->
+          <g id="poi-patches-layer" class="poi-label-layer"></g>
+
           <!-- Layer 2 (Foreground / Fog): Blank player map masked dynamically -->
           <image id="img-vierge" href="carte-vierge.jpg" xlink:href="carte-vierge.jpg" width="6563" height="8925" mask="url(#fog-mask)" preserveAspectRatio="none" />
+
+          <!-- Layer 2b: Texte et croix des lieux découverts, au-dessus du brouillard -->
+          <g id="poi-labels-layer" class="poi-label-layer"></g>
 
           <!-- Layer 3: Hexagonal Grid Lines (toggleable) -->
           <g id="grid-lines-layer" class="grid-lines"></g>
@@ -292,6 +298,7 @@
   <script src="hex-geometry.js"></script>
   <script src="fog-data.js"></script>
   <script src="poi-data.js"></script>
+  <script src="labels-data.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

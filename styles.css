@@ -161,6 +161,11 @@ html, body {
   cursor: default;
 }
 
+/* Rustines et textes des lieux : jamais d'événement souris */
+.poi-label-layer {
+  pointer-events: none;
+}
+
 /* ==========================================================================
    POI Markers & Fantasy Labels
    ========================================================================== */

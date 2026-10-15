@@ -105,6 +105,7 @@ class ChultMapApp {
     // Initialisation
     this.initDOM();
     this.initHexGrid();
+    this.renderPoiPatches();
     this.loadState();
     this.initEvents();
     this.fitToScreen();
@@ -123,6 +124,8 @@ class ChultMapApp {
     this.gridInteractiveLayer = document.getElementById('grid-interactive-layer');
     this.dmGhostLayer = document.getElementById('dm-ghost-layer');
     this.poiLayer = document.getElementById('poi-layer');
+    this.poiPatchesLayer = document.getElementById('poi-patches-layer');
+    this.poiLabelsLayer = document.getElementById('poi-labels-layer');
 
     // Toolbar & Panels
     this.toolbar = document.getElementById('toolbar');
@@ -326,6 +329,7 @@ class ChultMapApp {
     });
 
     this.renderPoiMarkers();
+    this.renderPoiLabels();
     this.renderDmGhosts();
     this.updateStats();
     this.renderPoiList();
@@ -335,6 +339,41 @@ class ChultMapApp {
         this.showToast(`📍 Lieu découvert : ${p.name} !`);
       });
     }
+  }
+
+  makeLabelImage(src, label, id) {
+    const img = document.createElementNS('http://www.w3.org/2000/svg', 'image');
+    img.setAttribute('id', id);
+    img.setAttribute('href', src);
+    img.setAttribute('x', label.x);
+    img.setAttribute('y', label.y);
+    img.setAttribute('width', label.w);
+    img.setAttribute('height', label.h);
+    img.setAttribute('preserveAspectRatio', 'none');
+    return img;
+  }
+
+  // Rustines : recouvrent le texte imprimé de chaque lieu sur la carte complète (sous le brouillard)
+  renderPoiPatches() {
+    const fragment = document.createDocumentFragment();
+    Object.keys(this.pois).forEach(id => {
+      const label = POI_LABELS[id];
+      if (!label) return;
+      fragment.appendChild(this.makeLabelImage(`Assets/labels/${id}-patch.png`, label, `poi-patch-${id}`));
+    });
+    this.poiPatchesLayer.appendChild(fragment);
+  }
+
+  // Texte et croix des lieux découverts, au-dessus du brouillard
+  renderPoiLabels() {
+    this.poiLabelsLayer.innerHTML = '';
+    const fragment = document.createDocumentFragment();
+    Object.entries(this.pois).forEach(([id, poi]) => {
+      const label = POI_LABELS[id];
+      if (!poi.revealed || !label) return;
+      fragment.appendChild(this.makeLabelImage(`Assets/labels/${id}-text.png`, label, `poi-text-${id}`));
+    });
+    this.poiLabelsLayer.appendChild(fragment);
   }
 
   renderPoiMarkers() {

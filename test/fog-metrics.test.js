@@ -52,3 +52,49 @@ test('hexagone coupé par le bord de l\'image ne plante pas', () => {
   const r = diffRatioInHex(blank(), b, W, H, C, 2, 2, 10, 40);
   assert.equal(r, 1);
 });
+
+const { colorRatioInHex } = require('../tools/fog-metrics.js');
+
+const COL = [255, 246, 221];
+function fillColor(buf, x0, y0, x1, y1, rgb) {
+  for (let y = y0; y < y1; y++) {
+    for (let x = x0; x < x1; x++) {
+      const i = (y * W + x) * C;
+      buf[i] = rgb[0]; buf[i + 1] = rgb[1]; buf[i + 2] = rgb[2];
+    }
+  }
+}
+const colorRatio = (buf, tol = 3) => colorRatioInHex(buf, W, H, C, hex.cx, hex.cy, hex.R, COL, tol);
+
+test('colorRatioInHex : image uniforme de la couleur : 1', () => {
+  const b = blank();
+  fillColor(b, 0, 0, W, H, COL);
+  assert.equal(colorRatio(b), 1);
+});
+
+test('colorRatioInHex : autre couleur : 0', () => {
+  assert.equal(colorRatio(blank()), 0);
+});
+
+test('colorRatioInHex : écart 5 hors tolérance 3 : 0, écart 2 : 1', () => {
+  const far = blank();
+  fillColor(far, 0, 0, W, H, [250, 246, 221]);
+  assert.equal(colorRatio(far, 3), 0);
+  const near = blank();
+  fillColor(near, 0, 0, W, H, [253, 246, 221]);
+  assert.equal(colorRatio(near, 3), 1);
+});
+
+test('colorRatioInHex : moitié gauche de la couleur : entre 0,4 et 0,6', () => {
+  const b = blank();
+  fillColor(b, 0, 0, 30, H, COL);
+  const r = colorRatio(b);
+  assert.ok(r > 0.4 && r < 0.6, `ratio ${r}`);
+});
+
+test('colorRatioInHex : hexagone coupé par le bord de l\'image', () => {
+  const b = blank();
+  fillColor(b, 0, 0, W, H, COL);
+  const r = colorRatioInHex(b, W, H, C, 2, 2, 10, COL, 3);
+  assert.equal(r, 1);
+});

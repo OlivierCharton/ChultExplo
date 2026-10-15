@@ -19,7 +19,7 @@ Date : 2026-10-15 · Branche : `wip`
 - Dépendance de développement : `sharp`, déclarée dans `package.json`. `node_modules/` est ignoré par git.
 - Charge `carte-complete.jpg` et `carte-vierge.jpg` (6563 × 8925).
 - Énumère les hexagones de la géométrie calibrée (`dx`, `dy`, `x0`, `y0`, `R`, flat-topped, colonnes impaires décalées de `dy/2`) dont le centre est dans l'image.
-- Pour chaque hexagone, mesure la part de pixels de son polygone où les deux images diffèrent au-delà d'une tolérance par pixel (bruit JPEG ignoré). La case est « brouillard » si cette part dépasse un seuil faible (~1 %, constante en tête de script).
+- Pour chaque hexagone, mesure la part de pixels de son polygone où les deux images diffèrent au-delà d'une tolérance par pixel (bruit JPEG ignoré). La case est « brouillard » si cette différence atteint 1 % (`FOG_RATIO`) ET si au moins 8 % de ses pixels dans la carte vierge sont du fond voilé (couleur plate RGB 255, 246, 221 à ±3 par canal ; `BLANK_RATIO`) ; sinon elle est visible et inerte, même si elle diffère par une teinte ou une annotation MJ (constantes en tête de script).
 - Écrit `fog-data.js` : `const FOG_HEX_KEYS = ["q,r", ...];`.
 - Écrit `Assets/fog-check.png` : la carte avec les cases en brouillard en rouge, pour contrôle visuel.
 - Affiche le nombre de cases en brouillard.

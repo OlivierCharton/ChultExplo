@@ -1,5 +1,6 @@
 /**
- * Calcule les cases « brouillard » : celles où carte-vierge.jpg diffère de carte-complete.jpg.
+ * Calcule les cases « brouillard » : celles où carte-vierge.jpg diffère de carte-complete.jpg
+ * ET qui sont réellement voilées (fond plat) dans carte-vierge.jpg.
  * Écrit fog-data.js (chargé par index.html) et Assets/fog-check.png (contrôle visuel).
  * Usage : npm run fog
  */
@@ -11,11 +12,17 @@ import { fileURLToPath } from 'node:url';
 
 const require = createRequire(import.meta.url);
 const { GRID, enumerateHexes, getPoints } = require('../hex-geometry.js');
-const { diffRatioInHex } = require('./fog-metrics.js');
+const { diffRatioInHex, colorRatioInHex } = require('./fog-metrics.js');
 
 // Réglages : à ajuster en regardant Assets/fog-check.png
 const TOLERANCE = 40;   // écart max par canal (0-255) toléré comme bruit JPEG
 const FOG_RATIO = 0.01; // part minimale de pixels différents pour qu'une case soit « brouillard »
+// Une case n'est « brouillard » que si elle est réellement voilée dans la carte vierge : le voile est
+// une couleur plate exacte ; une case dont la part de cette couleur est inférieure à BLANK_RATIO
+// montre du terrain imprimé (elle ne diffère que par une teinte ou une annotation MJ) et reste visible.
+const BLANK_COLOR = [255, 246, 221]; // couleur du fond voilé de la carte vierge
+const BLANK_TOLERANCE = 3;           // écart max par canal par rapport à BLANK_COLOR
+const BLANK_RATIO = 0.08;            // part minimale de pixels de fond voilé (carte vierge)
 
 // Légende de la carte (bas gauche) : absente de la carte vierge, elle doit rester visible en permanence.
 // Rectangle en pixels de l'image ; une case différente dont le centre y tombe est « toujours visible ».
@@ -48,7 +55,11 @@ const changed = hexes.filter(h =>
 );
 const inLegend = h => h.cx >= LEGEND_BOX.x0 && h.cx <= LEGEND_BOX.x1 && h.cy >= LEGEND_BOX.y0 && h.cy <= LEGEND_BOX.y1;
 const visible = changed.filter(inLegend);
-const fog = changed.filter(h => !inLegend(h));
+const isVeiled = h =>
+  colorRatioInHex(vierge.data, GRID.width, GRID.height, vierge.channels,
+    h.cx, h.cy, GRID.R, BLANK_COLOR, BLANK_TOLERANCE) >= BLANK_RATIO;
+const fog = changed.filter(h => !inLegend(h) && isVeiled(h));
+const changedVisible = changed.filter(h => !inLegend(h) && !isVeiled(h));
 
 const keys = fog.map(h => `${h.q},${h.r}`);
 const visibleKeys = visible.map(h => `${h.q},${h.r}`);
@@ -70,7 +81,8 @@ const poly = (h, color) => {
   const pts = getPoints(h.cx, h.cy).map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
   return `<polygon points="${pts}" fill="${color}" fill-opacity="0.45"/>`;
 };
-const polys = fog.map(h => poly(h, 'red')).join('') + visible.map(h => poly(h, 'green')).join('');
+const polys = fog.map(h => poly(h, 'red')).join('') + visible.map(h => poly(h, 'green')).join('') +
+  changedVisible.map(h => poly(h, 'blue')).join('');
 const outW = 1640;
 const outH = Math.round((GRID.height * outW) / GRID.width);
 const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${GRID.width} ${GRID.height}" width="${outW}" height="${outH}">${polys}</svg>`;
@@ -80,4 +92,6 @@ await sharp(path.join(root, 'carte-complete.jpg'), { limitInputPixels: false })
   .png()
   .toFile(path.join(root, 'Assets', 'fog-check.png'));
 
-console.log(`${visibleKeys.length} cases toujours visibles ; ${keys.length} cases en brouillard sur ${hexes.length} (tolérance ${TOLERANCE}, seuil ${FOG_RATIO * 100} %)`);
+console.log(`${keys.length} cases brouillard (rouge) ; ${visibleKeys.length} cases de légende toujours visibles (vert) ; ` +
+  `${changedVisible.length} cases qui diffèrent mais restent visibles (bleu) ; sur ${hexes.length} ` +
+  `(tolérance ${TOLERANCE}, seuil ${FOG_RATIO * 100} %, fond voilé ≥ ${BLANK_RATIO * 100} %)`);

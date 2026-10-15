@@ -4,7 +4,9 @@
   "description": "Carte interactive de Chult avec brouillard de guerre hexagonal",
   "scripts": {
     "test": "node --test \"test/**/*.test.js\"",
-    "fog": "node tools/compute-fog.mjs"
+    "fog": "node tools/compute-fog.mjs",
+    "labels:propose": "node tools/propose-label-boxes.mjs",
+    "labels": "node tools/extract-labels.mjs"
   },
   "devDependencies": {
     "sharp": "^0.35.5"

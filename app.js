@@ -20,8 +20,8 @@ const pointsOfInterest = {
   "port-nyanzaru": {
     "name": "Port Nyanzaru",
     "centerHex": {
-      "q": 42,
-      "r": 24
+      "q": 43,
+      "r": 23
     },
     "labelSize": "18px",
     "revealed": false,
@@ -31,8 +31,8 @@ const pointsOfInterest = {
   "fort-beluarian": {
     "name": "Fort Beluarian",
     "centerHex": {
-      "q": 49,
-      "r": 17
+      "q": 47,
+      "r": 18
     },
     "labelSize": "15px",
     "revealed": false,
@@ -53,7 +53,7 @@ const pointsOfInterest = {
   "camp-vengeance": {
     "name": "Camp Vengeance",
     "centerHex": {
-      "q": 34,
+      "q": 33,
       "r": 34
     },
     "labelSize": "15px",
@@ -64,7 +64,7 @@ const pointsOfInterest = {
   "yellyark": {
     "name": "Yellyark",
     "centerHex": {
-      "q": 36,
+      "q": 35,
       "r": 30
     },
     "labelSize": "14px",
@@ -75,7 +75,7 @@ const pointsOfInterest = {
   "vorn": {
     "name": "Vorn",
     "centerHex": {
-      "q": 32,
+      "q": 31,
       "r": 31
     },
     "labelSize": "14px",
@@ -86,7 +86,7 @@ const pointsOfInterest = {
   "mbala": {
     "name": "Mbala",
     "centerHex": {
-      "q": 30,
+      "q": 29,
       "r": 36
     },
     "labelSize": "15px",
@@ -98,7 +98,7 @@ const pointsOfInterest = {
     "name": "Orolunga",
     "centerHex": {
       "q": 23,
-      "r": 35
+      "r": 36
     },
     "labelSize": "14px",
     "revealed": false,
@@ -108,8 +108,8 @@ const pointsOfInterest = {
   "firefinger": {
     "name": "Firefinger",
     "centerHex": {
-      "q": 43,
-      "r": 31
+      "q": 44,
+      "r": 33
     },
     "labelSize": "15px",
     "revealed": false,
@@ -120,7 +120,7 @@ const pointsOfInterest = {
     "name": "Dungrunglung",
     "centerHex": {
       "q": 42,
-      "r": 34
+      "r": 37
     },
     "labelSize": "15px",
     "revealed": false,
@@ -130,8 +130,8 @@ const pointsOfInterest = {
   "mezro": {
     "name": "Mezro",
     "centerHex": {
-      "q": 47,
-      "r": 30
+      "q": 49,
+      "r": 32
     },
     "labelSize": "16px",
     "revealed": false,
@@ -141,8 +141,8 @@ const pointsOfInterest = {
   "port-castigliar": {
     "name": "Port Castigliar",
     "centerHex": {
-      "q": 49,
-      "r": 29
+      "q": 51,
+      "r": 30
     },
     "labelSize": "14px",
     "revealed": false,
@@ -152,8 +152,8 @@ const pointsOfInterest = {
   "ataaz-muhahah": {
     "name": "Ataaz Muhahah",
     "centerHex": {
-      "q": 47,
-      "r": 32
+      "q": 48,
+      "r": 35
     },
     "labelSize": "14px",
     "revealed": false,
@@ -163,8 +163,8 @@ const pointsOfInterest = {
   "heart-of-ubtao": {
     "name": "Heart of Ubtao",
     "centerHex": {
-      "q": 41,
-      "r": 37
+      "q": 38,
+      "r": 44
     },
     "labelSize": "16px",
     "revealed": false,
@@ -175,7 +175,7 @@ const pointsOfInterest = {
     "name": "Nangalore",
     "centerHex": {
       "q": 45,
-      "r": 43
+      "r": 44
     },
     "labelSize": "15px",
     "revealed": false,
@@ -196,7 +196,7 @@ const pointsOfInterest = {
   "needles-bones": {
     "name": "Needle's Bones",
     "centerHex": {
-      "q": 48,
+      "q": 50,
       "r": 40
     },
     "labelSize": "14px",
@@ -207,8 +207,8 @@ const pointsOfInterest = {
   "wreck-star-goddess": {
     "name": "Wreck of the Star Goddess",
     "centerHex": {
-      "q": 27,
-      "r": 43
+      "q": 28,
+      "r": 49
     },
     "labelSize": "14px",
     "revealed": false,
@@ -218,8 +218,8 @@ const pointsOfInterest = {
   "ataaz-kahakla": {
     "name": "Ataaz Kahakla",
     "centerHex": {
-      "q": 25,
-      "r": 40
+      "q": 26,
+      "r": 43
     },
     "labelSize": "14px",
     "revealed": false,
@@ -229,8 +229,8 @@ const pointsOfInterest = {
   "ataaz-yklwazi": {
     "name": "Ataaz Yklwazi",
     "centerHex": {
-      "q": 24,
-      "r": 46
+      "q": 25,
+      "r": 53
     },
     "labelSize": "14px",
     "revealed": false,
@@ -251,8 +251,8 @@ const pointsOfInterest = {
   "jahaka-anchorage": {
     "name": "Jahaka Anchorage",
     "centerHex": {
-      "q": 17,
-      "r": 42
+      "q": 14,
+      "r": 44
     },
     "labelSize": "14px",
     "revealed": false,
@@ -262,7 +262,7 @@ const pointsOfInterest = {
   "hrakhamar": {
     "name": "Hrakhamar",
     "centerHex": {
-      "q": 21,
+      "q": 18,
       "r": 53
     },
     "labelSize": "14px",
@@ -273,8 +273,8 @@ const pointsOfInterest = {
   "wyrmheart-mine": {
     "name": "Wyrmheart Mine",
     "centerHex": {
-      "q": 20,
-      "r": 57
+      "q": 19,
+      "r": 56
     },
     "labelSize": "14px",
     "revealed": false,

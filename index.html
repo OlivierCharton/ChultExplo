@@ -10,8 +10,29 @@
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800;900&family=Crimson+Pro:ital,wght@0,400;0,600;0,700;1,400&family=MedievalSharp&display=swap" rel="stylesheet">
 </head>
 <body class="mode-mj">
+  <!-- Écran d'accueil : créer une session MJ ou rejoindre en tant que joueur -->
+  <section id="landing" class="landing" aria-label="Choix de la session">
+    <div class="landing-card">
+      <h1 class="landing-title">Chult Explo</h1>
+      <p class="landing-subtitle">Carte interactive de Tomb of Annihilation</p>
+      <div id="landing-choices" class="landing-choices">
+        <button id="btn-create-session" type="button" class="landing-btn">⚔️ Créer une session MJ</button>
+        <button id="btn-join-session" type="button" class="landing-btn landing-btn-secondary">👁️ Rejoindre en tant que joueur</button>
+      </div>
+      <form id="join-form" class="join-form" novalidate hidden>
+        <label for="join-code" class="join-label">Code de la session</label>
+        <input id="join-code" class="join-input" type="text" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="off" placeholder="0000" />
+        <p id="join-error" class="join-error" role="alert"></p>
+        <div class="join-actions">
+          <button id="btn-join-back" type="button" class="landing-btn landing-btn-secondary">Retour</button>
+          <button id="btn-join-confirm" type="submit" class="landing-btn">Rejoindre</button>
+        </div>
+      </form>
+    </div>
+  </section>
+
   <!-- Application Container -->
-  <div id="app">
+  <div id="app" hidden>
     <!-- Map Viewport (Pan & Zoom Container) -->
     <main id="map-viewport">
       <div id="map-stage">
@@ -93,6 +114,14 @@
         </button>
       </nav>
 
+      <!-- Pastille de session : code et joueurs (MJ), état de la connexion (joueur) -->
+      <div id="session-indicator" class="session-indicator" hidden>
+        <span id="session-dot" class="session-dot"></span>
+        <span id="session-text" class="session-text"></span>
+        <button id="session-copy" type="button" class="session-btn" title="Copier le code" hidden>📋</button>
+        <button id="session-retry" type="button" class="session-btn" hidden>Réessayer</button>
+      </div>
+
       <!-- Zoom & View Control Buttons -->
       <aside id="map-controls" class="map-controls" aria-label="Contrôles de zoom">
         <button id="btn-zoom-in" class="ctrl-btn" title="Zoom avant (+)">＋</button>
@@ -129,7 +158,7 @@
 
       <div class="toolbar-scroll">
         <!-- Mode Switcher -->
-        <section class="tool-section">
+        <section id="mode-switch-section" class="tool-section">
           <h2 class="section-title">Mode d'Affichage</h2>
           <div class="mode-switch-group">
             <button id="mode-mj-btn" class="mode-tab active" data-mode="mj">
@@ -249,7 +278,7 @@
         </section>
 
         <!-- Save, Import, Export, Reset Operations -->
-        <section class="tool-section">
+        <section id="map-management-section" class="tool-section">
           <h2 class="section-title">Gestion de la Carte</h2>
           <div class="action-buttons-group">
             <button id="btn-export-save" class="btn btn-secondary" title="Télécharger le fichier de sauvegarde JSON">
@@ -305,6 +334,11 @@
   <script src="fog-data.js"></script>
   <script src="poi-data.js"></script>
   <script src="labels-data.js"></script>
+  <script src="vendor/peerjs.min.js"></script>
+  <script src="session-protocol.js"></script>
+  <script src="session.js"></script>
+  <script src="session-transports.js"></script>
   <script src="app.js"></script>
+  <script src="landing.js"></script>
 </body>
 </html>

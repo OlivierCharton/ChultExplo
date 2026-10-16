@@ -105,6 +105,8 @@ Aucun workflow n'est nécessaire : activer GitHub Pages sur `master` (dossier ra
 | `vendor/peerjs.min.js` | ajouter (bibliothèque, licence MIT) |
 | `session-protocol.js`, `session.js` | créer |
 | `test/session-protocol.test.js`, `test/session.test.js` | créer |
+| `session-transports.js`, `test/session-transports.test.js` | créer (transports PeerJS et BroadcastChannel) |
+| `landing.js` | créer (accueil, création MJ / joueur, pastille de session) |
 | `app.js`, `index.html`, `styles.css` | modifier |
 | `README.md` | modifier |
 

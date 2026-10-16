@@ -342,3 +342,12 @@ test('retry après une déconnexion du réseau reprend le même code et les joue
   assert.equal(client.status, 'connected');
   assert.equal(host.players.size, 1);
 });
+
+test('l\'écouteur onDisconnected d\'un ancien handle est sans effet après retry', async () => {
+  const { host } = setup();
+  await host.start();
+  const old = host.handle;
+  await host.retry();
+  old.simulateDisconnect();
+  assert.equal(host.status, 'online');
+});

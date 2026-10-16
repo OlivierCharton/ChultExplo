@@ -10,6 +10,16 @@
     root.ChultTransports = api;
   }
 })(typeof self !== 'undefined' ? self : this, function (root) {
+  // Exécute tous les rappels même si l'un d'eux lève ; la première erreur est relancée à la fin
+  function runAll(cbs) {
+    let error = null;
+    let failed = false;
+    cbs.slice().forEach((cb) => {
+      try { cb(); } catch (err) { if (!failed) { failed = true; error = err; } }
+    });
+    if (failed) throw error;
+  }
+
   // ---------------------------------------------------------------------------
   // BroadcastChannel : un canal partagé par tous les onglets de même origine
   // ---------------------------------------------------------------------------
@@ -23,7 +33,9 @@
     const links = new Map();           // linkId -> lien
     const pendingProbes = new Map();   // peerId -> callback « identifiant pris »
     const pendingConnects = new Map(); // linkId -> callback « connexion acceptée »
+    const cancelers = new Set();       // annulations des sondes et connexions en attente
     let linkCounter = 0;
+    let closedTransport = false;
 
     function post(message) {
       channel.postMessage({ ...message, from: instance });
@@ -51,8 +63,11 @@
       if (!link || link.closed) return;
       link.closed = true;
       links.delete(id);
-      if (notify) post({ kind: 'close', link: id, to: link.remote });
-      link.closeCbs.forEach((cb) => cb());
+      try {
+        if (notify && !closedTransport) post({ kind: 'close', link: id, to: link.remote });
+      } finally {
+        runAll(link.closeCbs);
+      }
     }
 
     function deliver(id, payload) {
@@ -100,11 +115,16 @@
       [...links.keys()].forEach((id) => closeLink(id, true));
     }
     // Rechargement ou fermeture de l'onglet : les autres onglets voient la connexion se fermer
-    if (typeof root.addEventListener === 'function') root.addEventListener('pagehide', closeAll);
+    const hasListener = typeof root.addEventListener === 'function';
+    if (hasListener) root.addEventListener('pagehide', closeAll);
 
     return {
       host(peerId) {
         return new Promise((resolve, reject) => {
+          if (closedTransport) {
+            reject({ code: 'closed' });
+            return;
+          }
           if (hostEntries.has(peerId)) {
             reject({ code: 'unavailable-id' });
             return;
@@ -112,7 +132,15 @@
           let taken = false;
           pendingProbes.set(peerId, () => { taken = true; });
           post({ kind: 'probe', peerId });
-          setTimeout(() => {
+          const cancel = () => {
+            clearTimeout(timer);
+            pendingProbes.delete(peerId);
+            cancelers.delete(cancel);
+            reject({ code: 'closed' });
+          };
+          cancelers.add(cancel);
+          const timer = setTimeout(() => {
+            cancelers.delete(cancel);
             pendingProbes.delete(peerId);
             if (taken) {
               reject({ code: 'unavailable-id' });
@@ -133,14 +161,27 @@
       },
       connect(peerId) {
         return new Promise((resolve, reject) => {
+          if (closedTransport) {
+            reject({ code: 'peer-unavailable' });
+            return;
+          }
           linkCounter += 1;
           const id = `${instance}-${linkCounter}`;
+          const cancel = () => {
+            clearTimeout(timer);
+            pendingConnects.delete(id);
+            cancelers.delete(cancel);
+            reject({ code: 'peer-unavailable' });
+          };
+          cancelers.add(cancel);
           const timer = setTimeout(() => {
+            cancelers.delete(cancel);
             pendingConnects.delete(id);
             reject({ code: 'peer-unavailable' });
           }, connectMs);
           pendingConnects.set(id, (remote) => {
             clearTimeout(timer);
+            cancelers.delete(cancel);
             pendingConnects.delete(id);
             resolve(createLink(id, remote).api);
           });
@@ -148,8 +189,16 @@
         });
       },
       close() {
-        closeAll();
-        channel.close();
+        if (closedTransport) return;
+        // Les liens sont fermés (et l'autre côté prévenu) avant de marquer le transport fermé
+        try {
+          closeAll();
+        } finally {
+          closedTransport = true;
+          [...cancelers].forEach((cancel) => cancel());
+          if (hasListener && typeof root.removeEventListener === 'function') root.removeEventListener('pagehide', closeAll);
+          channel.close();
+        }
       }
     };
   }
@@ -157,7 +206,7 @@
   // ---------------------------------------------------------------------------
   // PeerJS : adaptateur sur la bibliothèque (classe Peer)
   // ---------------------------------------------------------------------------
-  function createPeerJsTransport(PeerClass, peerOptions) {
+  function createPeerJsTransport(PeerClass, peerOptions, { connectTimeoutMs = 8000 } = {}) {
     // Les données reçues avant l'enregistrement du gestionnaire sont conservées puis rejouées.
     // Une erreur de connexion est traitée comme une fermeture (rappels appelés une seule fois).
     function wrapConnection(conn, afterClose) {
@@ -165,10 +214,21 @@
       const closeCbs = [];
       const buffer = [];
       let closed = false;
+      let cleaned = false;
+      // Libère le pair au plus une fois (fermeture explicite, erreur ou fermeture distante)
+      function runAfterClose() {
+        if (cleaned) return;
+        cleaned = true;
+        if (afterClose) afterClose();
+      }
       function notifyClosed() {
         if (closed) return false;
         closed = true;
-        closeCbs.forEach((cb) => cb());
+        try {
+          runAll(closeCbs);
+        } finally {
+          runAfterClose();
+        }
         return true;
       }
       conn.on('data', (data) => {
@@ -177,9 +237,12 @@
       });
       conn.on('close', notifyClosed);
       conn.on('error', () => {
-        if (!notifyClosed()) return;
-        conn.close();
-        if (afterClose) afterClose();
+        let first = true;
+        try {
+          first = notifyClosed();
+        } finally {
+          if (first) conn.close();
+        }
       });
       return {
         send(message) { conn.send(message); },
@@ -189,8 +252,11 @@
         },
         onClose(cb) { closeCbs.push(cb); },
         close() {
-          conn.close();
-          if (afterClose) afterClose();
+          try {
+            conn.close();
+          } finally {
+            runAfterClose();
+          }
         }
       };
     }
@@ -202,12 +268,16 @@
           const connectionCbs = [];
           const disconnectedCbs = [];
           let opened = false;
+          let closing = false;
           peer.on('open', () => {
             opened = true;
             resolve({
               onConnection(cb) { connectionCbs.push(cb); },
               onDisconnected(cb) { disconnectedCbs.push(cb); },
-              close() { peer.destroy(); }
+              close() {
+                closing = true;
+                peer.destroy();
+              }
             });
           });
           peer.on('connection', (conn) => {
@@ -216,7 +286,9 @@
               connectionCbs.forEach((cb) => cb(wrapped));
             });
           });
-          peer.on('disconnected', () => disconnectedCbs.forEach((cb) => cb()));
+          peer.on('disconnected', () => {
+            if (!closing) disconnectedCbs.forEach((cb) => cb());
+          });
           peer.on('error', (err) => {
             if (opened) return;
             peer.destroy();
@@ -228,9 +300,11 @@
         return new Promise((resolve, reject) => {
           const peer = new PeerClass(undefined, peerOptions);
           let settled = false;
+          const timer = setTimeout(() => fail({ type: 'timeout' }), connectTimeoutMs);
           const fail = (err) => {
             if (settled) return;
             settled = true;
+            clearTimeout(timer);
             peer.destroy();
             reject(err);
           };
@@ -240,9 +314,11 @@
             conn.on('open', () => {
               if (settled) return;
               settled = true;
+              clearTimeout(timer);
               resolve(wrapConnection(conn, () => peer.destroy()));
             });
             conn.on('error', fail);
+            conn.on('close', () => fail({ type: 'closed' }));
           });
         });
       }

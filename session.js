@@ -150,10 +150,11 @@
         this.setStatus('offline');
         throw new Error('Aucun code de session disponible.');
       }
-      this.handle = result.handle;
+      const handle = result.handle;
+      this.handle = handle;
       this.code = result.code;
-      this.handle.onConnection((conn) => this.addPlayer(conn));
-      this.handle.onDisconnected(() => this.setStatus('offline'));
+      handle.onConnection((conn) => this.addPlayer(conn));
+      handle.onDisconnected(() => { if (this.handle === handle) this.setStatus('offline'); });
       this.setStatus('online');
       return this.code;
     }

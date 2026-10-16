@@ -161,6 +161,7 @@ html, body {
   pointer-events: all;
   cursor: grab;
   touch-action: none;
+  clip-path: circle(50% at 50% 50%);
 }
 
 .mode-mj #party-token.dragging {

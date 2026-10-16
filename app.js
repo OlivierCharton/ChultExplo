@@ -252,7 +252,7 @@ class ChultMapApp {
     return this.getPartyStartHex();
   }
 
-  // Centre le jeton sur un point de la carte
+  // Glisser-déposer du jeton (Mode MJ)
   initPartyEvents() {
     const token = this.partyToken;
     const isActive = (e) => this.partyDrag && e.pointerId === this.partyDrag.pointerId;
@@ -262,19 +262,39 @@ class ChultMapApp {
       e.preventDefault();
       e.stopPropagation();
       try { token.setPointerCapture(e.pointerId); } catch (err) { /* pointeur synthétique */ }
-      this.partyDrag = { pointerId: e.pointerId, from: { ...this.partyHex } };
+      this.hasDragged = false; // le preventDefault supprime le mousedown qui le remet à faux
+      this.partyDrag = {
+        pointerId: e.pointerId,
+        from: { ...this.partyHex },
+        startX: e.clientX,
+        startY: e.clientY,
+        moved: false
+      };
       this.renderHover(null, false);
       token.classList.add('dragging');
     });
 
     token.addEventListener('pointermove', (e) => {
       if (!isActive(e)) return;
+      const drag = this.partyDrag;
+      if (!drag.moved) {
+        // Seuil de 4 px : en dessous, c'est un simple clic sur le jeton
+        if (Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) < 4) return;
+        drag.moved = true;
+      }
       const { x, y } = this.eventToMapPoint(e);
       this.placePartyToken(x, y);
     });
 
     token.addEventListener('pointerup', (e) => {
       if (!isActive(e)) return;
+      if (!this.partyDrag.moved) {
+        // Simple clic : pas de déplacement, le click natif applique l'outil
+        this.partyDrag = null;
+        token.classList.remove('dragging');
+        this.renderParty();
+        return;
+      }
       const { x, y } = this.eventToMapPoint(e);
       this.endPartyDrag(HexGeometry.hexAt(x, y));
     });
@@ -282,6 +302,10 @@ class ChultMapApp {
     token.addEventListener('pointercancel', (e) => {
       if (!isActive(e)) return;
       this.endPartyDrag(null);
+    });
+
+    token.addEventListener('lostpointercapture', (e) => {
+      if (isActive(e)) this.endPartyDrag(null);
     });
 
     // Un glissement du jeton ne doit pas déplacer la carte (souris et tactile)
@@ -319,6 +343,7 @@ class ChultMapApp {
     }
   }
 
+  // Centre le jeton sur un point de la carte
   placePartyToken(cx, cy) {
     this.partyToken.setAttribute('width', TOKEN_SIZE);
     this.partyToken.setAttribute('height', TOKEN_SIZE);
@@ -1049,7 +1074,6 @@ class ChultMapApp {
     this.hudPoi.textContent = 'Lieu: Aucun';
   }
 
-  // Case du brouillard sous la souris (null si hors brouillard), calculée sans polygone
   // Point de la carte (coordonnées image) sous un événement souris ou pointeur
   eventToMapPoint(e) {
     const rect = this.viewport.getBoundingClientRect();
@@ -1059,6 +1083,7 @@ class ChultMapApp {
     };
   }
 
+  // Case du brouillard sous la souris (null si hors brouillard), calculée sans polygone
   eventToHex(e) {
     const { x, y } = this.eventToMapPoint(e);
     const { q, r } = HexGeometry.hexAt(x, y);

@@ -23,6 +23,8 @@
               <rect width="6563" height="8925" fill="white" />
               <!-- Cutouts for all revealed hexes -->
               <g id="mask-holes"></g>
+              <!-- Cases de légende toujours visibles (carte complète) -->
+              <g id="mask-visible"></g>
             </mask>
 
             <!-- Filters & Gradients for Fantasy UI -->
@@ -43,16 +45,23 @@
           </defs>
 
           <!-- Layer 1 (Background): Complete DM map with all geographic details and secrets -->
-          <image id="img-complete" href="carte-complete.jpg" xlink:href="carte-complete.jpg" width="6563" height="8925" preserveAspectRatio="none" />
+          <image id="img-complete" href="Assets/carte-complete.jpg" xlink:href="Assets/carte-complete.jpg" width="6563" height="8925" preserveAspectRatio="none" />
+
+          <!-- Layer 1b: Rustines de texture qui recouvrent le texte imprimé des lieux (sous le brouillard) -->
+          <g id="poi-patches-layer" class="poi-label-layer"></g>
 
           <!-- Layer 2 (Foreground / Fog): Blank player map masked dynamically -->
-          <image id="img-vierge" href="carte-vierge.jpg" xlink:href="carte-vierge.jpg" width="6563" height="8925" mask="url(#fog-mask)" preserveAspectRatio="none" />
+          <image id="img-vierge" href="Assets/carte-vierge.jpg" xlink:href="Assets/carte-vierge.jpg" width="6563" height="8925" mask="url(#fog-mask)" preserveAspectRatio="none" />
+
+          <!-- Layer 2b: Texte et croix des lieux découverts, au-dessus du brouillard -->
+          <g id="poi-labels-layer" class="poi-label-layer"></g>
 
           <!-- Layer 3: Hexagonal Grid Lines (toggleable) -->
           <g id="grid-lines-layer" class="grid-lines"></g>
 
-          <!-- Layer 4: Interactive Hex Cells (hover highlight & click handling) -->
-          <g id="grid-interactive-layer" class="grid-interactive"></g>
+          <!-- Layer 4: Surbrillance de survol et flash de révélation (aucun événement : les clics sont calculés par case) -->
+          <g id="hover-layer" class="hover-layer"></g>
+          <g id="flash-layer" class="flash-layer"></g>
 
           <!-- Layer 5: Secret DM Markers (ghost badges visible only in Mode MJ) -->
           <g id="dm-ghost-layer" class="dm-ghosts"></g>
@@ -179,17 +188,17 @@
             <h2 class="section-title">Affichage & Repères</h2>
             <div class="toggle-list">
               <label class="toggle-row">
-                <input type="checkbox" id="chk-grid-visible" checked>
+                <input type="checkbox" id="chk-grid-visible">
                 <span class="toggle-slider"></span>
                 <span class="toggle-label">Grille hexagonale apparente</span>
               </label>
               <label class="toggle-row">
-                <input type="checkbox" id="chk-dm-ghosts" checked>
+                <input type="checkbox" id="chk-dm-ghosts">
                 <span class="toggle-slider"></span>
                 <span class="toggle-label">Repères secrets MJ (POI non découverts)</span>
               </label>
               <label class="toggle-row">
-                <input type="checkbox" id="chk-poi-labels" checked>
+                <input type="checkbox" id="chk-poi-labels">
                 <span class="toggle-slider"></span>
                 <span class="toggle-label">Noms des lieux découverts</span>
               </label>
@@ -287,6 +296,10 @@
   </div>
 
   <!-- Main Logic Script -->
+  <script src="hex-geometry.js"></script>
+  <script src="fog-data.js"></script>
+  <script src="poi-data.js"></script>
+  <script src="labels-data.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

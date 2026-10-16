@@ -111,26 +111,21 @@ html, body {
   opacity: 0;
 }
 
-.grid-interactive polygon {
+/* Surbrillance de survol (cases que l'action en cours modifierait) et flash de révélation */
+.hover-layer,
+.flash-layer {
+  pointer-events: none;
+}
+
+.hover-layer polygon {
+  fill: rgba(255, 215, 0, 0.42);
+  stroke: #ffea75;
+  stroke-width: 2.5px;
+}
+
+.flash-layer polygon {
   fill: transparent;
   stroke: transparent;
-  stroke-width: 1.5px;
-  cursor: pointer;
-  pointer-events: all;
-  transition: fill 0.12s ease, stroke 0.12s ease;
-}
-
-/* Mode MJ Hover and Active States */
-.mode-mj .grid-interactive polygon:hover {
-  fill: rgba(255, 230, 100, 0.32);
-  stroke: var(--accent-gold-hover);
-  stroke-width: 2px;
-}
-
-.mode-mj .grid-interactive polygon.brush-hover {
-  fill: rgba(255, 215, 0, 0.42) !important;
-  stroke: #ffea75 !important;
-  stroke-width: 2.5px !important;
 }
 
 /* Flash animation on hex reveal */
@@ -155,10 +150,9 @@ html, body {
   }
 }
 
-/* Mode Joueur: disable pointer events on cells so clicks don't edit */
-.mode-player .grid-interactive polygon {
+/* Rustines et textes des lieux : jamais d'événement souris */
+.poi-label-layer {
   pointer-events: none;
-  cursor: default;
 }
 
 /* ==========================================================================

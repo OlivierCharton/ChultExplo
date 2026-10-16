@@ -8,8 +8,8 @@ L'objectif est de permettre à un Maître de Jeu (MJ) de révéler progressiveme
 - `index.html` : Structure principale et interface utilisateur.
 - `styles.css` : Design, grille, positionnements et overlays.
 - `app.js` : Toute la logique de gestion de la carte, de la grille, des interactions et des sauvegardes.
-- `carte-complete.jpg` : (Image MJ avec tous les détails - image_0.png)
-- `carte-vierge.jpg` : (Image Joueurs avec cases blanches - image_1.png)
+- `Assets/carte-complete.jpg` : (Image MJ avec tous les détails - image_0.png)
+- `Assets/carte-vierge.jpg` : (Image Joueurs avec cases blanches - image_1.png)
 
 ---
 
@@ -26,13 +26,13 @@ L'objectif est de permettre à un Maître de Jeu (MJ) de révéler progressiveme
 ### FONCTIONNALITÉS TECHNIQUES REQUISES
 
 1. SUPERPOSITION DES COUCHES ET RENDU (MÉTHODE A)
-- Couche arrière-plan : `carte-complete.jpg` (qui contient tous les détails géographiques et les lieux).
-- Couche avant-plan / masquage : `carte-vierge.jpg` découpée dynamiquement.
+- Couche arrière-plan : `Assets/carte-complete.jpg` (qui contient tous les détails géographiques et les lieux).
+- Couche avant-plan / masquage : `Assets/carte-vierge.jpg` découpée dynamiquement.
 - Implémenter une grille de masquage hexagonale (Hexagonal Grid) par-dessus la carte.
 - Au chargement, tous les hexagones du "brouillard de guerre" affichent la texture de la carte vierge (image_1.png).
 - Lorsqu'un hexagone est cliqué/révélé :
-  - Il devient transparent, révélant la "vrai" carte (`carte-complete.jpg`) en dessous pour cette case précise.
-  - La grille hexagonale doit épouser parfaitement le tracé de la carte originale de Chult (environ 24 colonnes x 40 lignes d'hexagones, à calibrer dynamiquement).
+  - Il devient transparent, révélant la "vrai" carte (`Assets/carte-complete.jpg`) en dessous pour cette case précise.
+  - La grille hexagonale doit épouser parfaitement le tracé de la carte originale de Chult (environ 78 colonnes x 93 lignes d'hexagones, calibrées dans `hex-geometry.js`).
 
 2. GESTION DES TEXTES DE LIEUX (MÉTHODE A)
 - Pour éviter que la révélation d'une case de jungle n'affiche la fin d'un nom de ville (ex: "...mu" de Omu) alors que la ville elle-même n'est pas découverte, nous gérons un calque de textes/marqueurs virtuels en JS.
@@ -41,7 +41,7 @@ L'objectif est de permettre à un Maître de Jeu (MJ) de révéler progressiveme
 - Les textes doivent s'adapter au zoom de la carte pour rester lisibles et alignés.
 
 3. GRID & REPERES
-- Les hexagones doivent être orientés "pointes en haut" (flat-topped) ou "coins en haut" (pointy-topped) pour correspondre exactement aux hexagones de l'image (Chult utilise des hexagones pointy-topped, pointe en haut/bas, à aligner).
+- Les hexagones sont orientés « flat-topped » (côtés plats en haut et en bas, pointes à gauche et à droite) pour correspondre exactement aux hexagones de l'image.
 - Un survol d'une case affiche une légère surbrillance. Un clic "révèle" (ou masque à nouveau en mode édition du MJ, par exemple avec Ctrl+Clic ou clic droit).
 
 4. SAUVEGARDE ET PERSISTANCE

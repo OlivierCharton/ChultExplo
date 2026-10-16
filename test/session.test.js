@@ -35,8 +35,9 @@ function setup() {
   const scheduler = createFakeScheduler();
   const state = { revealedHexes: ['44,34'], partyHex: '43,23' };
   const log = { players: [], statuses: [] };
+  state.snapshotCalls = 0;
   const host = new SessionHost(transport, {
-    getSnapshot: () => ({ revealedHexes: state.revealedHexes.slice(), partyHex: state.partyHex }),
+    getSnapshot: () => (state.snapshotCalls++, { revealedHexes: state.revealedHexes.slice(), partyHex: state.partyHex }),
     onPlayers: (n) => log.players.push(n),
     onStatus: (s) => log.statuses.push(s),
     scheduler
@@ -146,13 +147,16 @@ test('le compteur de joueurs suit les départs', async () => {
 });
 
 test('les messages d\'un joueur sont ignorés', async () => {
-  const { transport, scheduler, host, log } = setup();
+  const { transport, scheduler, host, log, state } = setup();
   const code = await host.start();
   const raw = await transport.connect(peerIdFor(code));
   raw.onMessage(() => {});
+  await tick();
+  assert.equal(state.snapshotCalls, 1);
   raw.send({ type: 'state', version: 1, revealedHexes: ['38,40'], partyHex: '44,36' });
   raw.send('garbage');
   await tick();
+  assert.equal(state.snapshotCalls, 1);
   assert.equal(log.players.at(-1), 1);
   assert.equal(scheduler.count, 0);
 });
@@ -242,4 +246,99 @@ test('leave arrête les tentatives', async () => {
   assert.equal(scheduler.count, 1);
   client.leave();
   assert.equal(scheduler.count, 0);
+});
+
+test('stop puis start immédiats : la nouvelle session survit au minuteur de fermeture', async () => {
+  const { transport, scheduler, host } = setup();
+  const code1 = await host.start();
+  const old = makeClient(transport, scheduler);
+  await old.client.join(code1);
+  host.stop();
+  const code2 = await host.start();
+  scheduler.advance(200);
+  await tick();
+  assert.equal(old.client.status, 'ended');
+  const fresh = makeClient(transport, scheduler);
+  await fresh.client.join(code2);
+  assert.equal(fresh.client.status, 'connected');
+});
+
+test('un bye avant le premier instantané fait échouer join', async () => {
+  const transport = createLoopbackTransport();
+  const scheduler = createFakeScheduler();
+  const raw = await transport.host(peerIdFor('4242'));
+  raw.onConnection((conn) => {
+    conn.onMessage(() => {});
+    conn.send({ type: 'bye' });
+  });
+  const { client } = makeClient(transport, scheduler);
+  await assert.rejects(client.join('4242'), /Session terminée/);
+  assert.equal(client.status, 'ended');
+  assert.equal(scheduler.count, 0);
+});
+
+test('un instantané reçu après bye ne rétablit pas le statut connecté', async () => {
+  const transport = createLoopbackTransport();
+  const scheduler = createFakeScheduler();
+  const raw = await transport.host(peerIdFor('4242'));
+  const snap = buildSnapshot({ revealedHexes: ['44,34'], partyHex: '43,23' });
+  raw.onConnection((conn) => {
+    conn.onMessage(() => {});
+    conn.send(snap);
+    conn.send({ type: 'bye' });
+    conn.send(snap);
+  });
+  const { client, log } = makeClient(transport, scheduler);
+  await client.join('4242');
+  await tick();
+  assert.equal(client.status, 'ended');
+  assert.equal(log.snapshots.length, 1);
+});
+
+test('join appelé deux fois : le premier est annulé, le second réussit, sans connexion fantôme', async () => {
+  const { transport, scheduler, host, log } = setup();
+  const code = await host.start();
+  const { client } = makeClient(transport, scheduler);
+  const first = client.join(code);
+  const firstResult = assert.rejects(first, /Connexion annulée/);
+  const second = client.join(code);
+  await firstResult;
+  await second;
+  await tick();
+  assert.equal(client.status, 'connected');
+  assert.equal(host.players.size, 1);
+  assert.equal(log.players.at(-1), 1);
+});
+
+test('après stop, la diffusion est muette et les nouvelles connexions sont refusées', async () => {
+  const { transport, scheduler, host } = setup();
+  const code = await host.start();
+  const { client, log } = makeClient(transport, scheduler);
+  await client.join(code);
+  host.stop();
+  host.broadcast();
+  scheduler.advance(50);
+  await tick();
+  assert.equal(log.snapshots.length, 1);
+  const raw = await transport.connect(peerIdFor(code));
+  raw.onMessage(() => {});
+  await tick();
+  assert.equal(host.players.size, 0);
+});
+
+test('retry après une déconnexion du réseau reprend le même code et les joueurs reviennent', async () => {
+  const { transport, scheduler, host } = setup();
+  const code = await host.start();
+  const { client } = makeClient(transport, scheduler);
+  await client.join(code);
+  host.handle.simulateDisconnect();
+  assert.equal(host.status, 'offline');
+  assert.equal(await host.retry(), code);
+  assert.equal(host.status, 'online');
+  await tick();
+  assert.equal(client.status, 'lost');
+  scheduler.advance(3000);
+  await tick();
+  assert.equal(client.status, 'connected');
+  assert.equal(host.players.size, 1);
 });

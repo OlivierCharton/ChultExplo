@@ -89,6 +89,8 @@
       this.code = null;
       this.players = new Set();
       this.pending = null;
+      this.stopped = false;
+      this.startPromise = null;
       this.status = 'offline';
     }
 
@@ -111,8 +113,23 @@
       }
     }
 
-    async start({ preferredCode } = {}) {
+    // Un seul démarrage à la fois : un appel concurrent reçoit la même promesse
+    start(options) {
+      if (this.startPromise) return this.startPromise;
+      this.startPromise = this.doStart(options || {}).finally(() => { this.startPromise = null; });
+      return this.startPromise;
+    }
+
+    clearPlayers() {
+      if (this.players.size === 0) return;
+      this.players.clear();
+      this.onPlayers(0);
+    }
+
+    async doStart({ preferredCode } = {}) {
+      this.stopped = false;
       this.closeHandle();
+      this.clearPlayers();
       this.setStatus('connecting');
       let result = null;
       try {
@@ -150,6 +167,10 @@
     }
 
     addPlayer(conn) {
+      if (this.stopped) {
+        conn.close();
+        return;
+      }
       this.players.add(conn);
       this.onPlayers(this.players.size);
       conn.onMessage(() => {}); // lecture seule : tout message d'un joueur est ignoré
@@ -161,7 +182,7 @@
 
     // Envoie l'état à tous les joueurs ; les appels rapprochés sont regroupés (50 ms)
     broadcast() {
-      if (this.pending !== null) return;
+      if (this.stopped || this.pending !== null) return;
       this.pending = this.scheduler.setTimeout(() => {
         this.pending = null;
         const message = this.snapshotMessage();
@@ -181,9 +202,14 @@
         this.scheduler.clearTimeout(this.pending);
         this.pending = null;
       }
+      this.stopped = true;
       this.players.forEach((conn) => conn.send({ type: 'bye' }));
+      this.clearPlayers();
       this.setStatus('offline');
-      this.scheduler.setTimeout(() => this.closeHandle(), 200);
+      // Le handle est capturé : un start() ultérieur ne doit pas voir son nouveau handle fermé
+      const handle = this.handle;
+      this.handle = null;
+      this.scheduler.setTimeout(() => { if (handle) handle.close(); }, 200);
     }
   }
 
@@ -207,6 +233,7 @@
       this.retryTimer = null;
       this.joinTimer = null;
       this.pendingJoin = null;
+      this.generation = 0;
     }
 
     setStatus(status) {
@@ -216,6 +243,8 @@
     }
 
     join(code) {
+      this.leave();
+      this.generation++;
       this.code = code;
       this.stopped = false;
       this.joined = false;
@@ -236,8 +265,9 @@
 
     attempt() {
       if (this.stopped) return;
+      const gen = this.generation;
       this.transport.connect(protocol.peerIdFor(this.code)).then((conn) => {
-        if (this.stopped) {
+        if (gen !== this.generation || this.stopped) {
           conn.close();
           return;
         }
@@ -245,7 +275,7 @@
         conn.onMessage((message) => this.handleMessage(conn, message));
         conn.onClose(() => this.handleClose(conn));
       }, () => {
-        if (this.stopped) return;
+        if (gen !== this.generation || this.stopped) return;
         if (!this.joined) {
           this.failJoin();
           return;
@@ -256,11 +286,16 @@
 
     handleMessage(conn, message) {
       if (conn !== this.conn) return;
+      if (this.stopped) return;
       if (message && message.type === 'bye') {
         this.stopped = true;
         this.clearTimers();
         this.setStatus('ended');
+        const pending = this.pendingJoin;
+        this.pendingJoin = null;
         conn.close();
+        this.conn = null;
+        if (pending) pending.reject(new Error('Session terminée.'));
         return;
       }
       const snapshot = this.parse(message);
@@ -313,7 +348,11 @@
 
     leave() {
       this.stopped = true;
+      this.generation++;
       this.clearTimers();
+      const pending = this.pendingJoin;
+      this.pendingJoin = null;
+      if (pending) pending.reject(new Error('Connexion annulée.'));
       if (this.conn) {
         const conn = this.conn;
         this.conn = null;

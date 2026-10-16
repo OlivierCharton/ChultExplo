@@ -18,6 +18,9 @@ const MAP_CONFIG = {
 // 4. Clé de stockage LocalStorage
 const STORAGE_KEY = 'chult_explo_save_v1';
 
+// 5. Jeton du groupe : diamètre sur la carte (px), inférieur au cercle inscrit d'une case (√3·R ≈ 96,4)
+const TOKEN_SIZE = 88;
+
 /**
  * Moteur Géométrique Hexagonal (Flat-Topped)
  */
@@ -102,12 +105,16 @@ class ChultMapApp {
     // Hover cache
     this.hoveredHex = null;
 
+    // Jeton du groupe
+    this.partyHex = this.getPartyStartHex();
+
     // Initialisation
     this.initDOM();
     this.initHexGrid();
     this.renderPoiPatches();
     this.initPoiLabels();
     this.loadState();
+    this.renderParty();
     this.initEvents();
     this.fitToScreen();
     this.updateStats();
@@ -128,6 +135,7 @@ class ChultMapApp {
     this.poiLayer = document.getElementById('poi-layer');
     this.poiPatchesLayer = document.getElementById('poi-patches-layer');
     this.poiLabelsLayer = document.getElementById('poi-labels-layer');
+    this.partyToken = document.getElementById('party-token');
 
     // Toolbar & Panels
     this.toolbar = document.getElementById('toolbar');
@@ -223,6 +231,39 @@ class ChultMapApp {
     }
   }
 
+  // Position de départ du groupe : la case de Port Nyanzaru
+  getPartyStartHex() {
+    const { q, r } = this.pois['port-nyanzaru'].centerHex;
+    return { q, r };
+  }
+
+  // "q,r" -> { q, r } si la case est sur la carte, sinon la position de départ
+  parsePartyHex(value) {
+    if (typeof value === 'string') {
+      const m = /^(-?\d+),(-?\d+)$/.exec(value);
+      if (m) {
+        const q = parseInt(m[1], 10);
+        const r = parseInt(m[2], 10);
+        if (HexGeometry.isInMap(q, r)) return { q, r };
+      }
+    }
+    return this.getPartyStartHex();
+  }
+
+  // Centre le jeton sur un point de la carte
+  placePartyToken(cx, cy) {
+    this.partyToken.setAttribute('width', TOKEN_SIZE);
+    this.partyToken.setAttribute('height', TOKEN_SIZE);
+    this.partyToken.setAttribute('x', cx - TOKEN_SIZE / 2);
+    this.partyToken.setAttribute('y', cy - TOKEN_SIZE / 2);
+  }
+
+  // Centre le jeton sur la case du groupe
+  renderParty() {
+    const { cx, cy } = HexMath.getCenter(this.partyHex.q, this.partyHex.r);
+    this.placePartyToken(cx, cy);
+  }
+
   loadState() {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -231,6 +272,7 @@ class ChultMapApp {
         if (Array.isArray(data.revealedHexes)) {
           this.revealedHexSet = new Set(data.revealedHexes.filter(k => this.fogKeys.has(k)));
         }
+        this.partyHex = this.parsePartyHex(data.partyHex);
       }
     } catch (err) {
       console.warn('Impossible de charger la sauvegarde:', err);
@@ -246,6 +288,7 @@ class ChultMapApp {
         version: 1,
         date: new Date().toISOString(),
         revealedHexes: Array.from(this.revealedHexSet),
+        partyHex: `${this.partyHex.q},${this.partyHex.r}`,
         revealedPois: Object.entries(this.pois).filter(([_, p]) => p.revealed).map(([k]) => k),
         stats: {
           revealedCount: this.getExploredCount(),
@@ -1048,6 +1091,7 @@ class ChultMapApp {
       version: 1,
       date: new Date().toISOString(),
       revealedHexes: Array.from(this.revealedHexSet),
+      partyHex: `${this.partyHex.q},${this.partyHex.r}`,
       revealedPois: Object.entries(this.pois).filter(([_, p]) => p.revealed).map(([k]) => k),
       stats: {
         revealedCount: this.getExploredCount(),
@@ -1077,6 +1121,8 @@ class ChultMapApp {
         const data = JSON.parse(evt.target.result);
         if (Array.isArray(data.revealedHexes)) {
           this.revealedHexSet = new Set(data.revealedHexes.filter(k => this.fogKeys.has(k)));
+          this.partyHex = this.parsePartyHex(data.partyHex);
+          this.renderParty();
           this.syncMaskHoles();
           this.syncPois();
           this.saveState();
@@ -1094,6 +1140,8 @@ class ChultMapApp {
 
   resetMap() {
     this.revealedHexSet.clear();
+    this.partyHex = this.getPartyStartHex();
+    this.renderParty();
     this.syncMaskHoles();
     this.syncPois();
     this.saveState();
@@ -1112,6 +1160,8 @@ class ChultMapApp {
 
   hideAllHexes() {
     this.revealedHexSet.clear();
+    this.partyHex = this.getPartyStartHex();
+    this.renderParty();
     this.syncMaskHoles();
     this.syncPois();
     this.saveState();

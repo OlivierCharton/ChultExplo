@@ -150,6 +150,12 @@ html, body {
   }
 }
 
+/* Jeton du groupe : aucun événement tant que le glisser-déposer n'est pas actif (Mode MJ) */
+.party-layer,
+#party-token {
+  pointer-events: none;
+}
+
 /* Rustines et textes des lieux : jamais d'événement souris */
 .poi-label-layer {
   pointer-events: none;

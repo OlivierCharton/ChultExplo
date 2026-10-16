@@ -76,8 +76,10 @@ const HexMath = {
  * Gestionnaire d'État Global de l'Application
  */
 class ChultMapApp {
-  constructor() {
-    this.mode = 'mj'; // 'mj' | 'player'
+  constructor({ role = 'mj' } = {}) {
+    this.role = role; // 'mj' | 'player' : la page joueur est en lecture seule, alimentée par la session
+    this.session = null; // SessionHost (MJ) ou SessionClient (joueur), posé par landing.js
+    this.mode = role === 'player' ? 'player' : 'mj'; // 'mj' | 'player'
     this.currentTool = 'reveal'; // 'reveal' | 'hide' | 'toggle'
     this.brushRadius = 0; // 0 = 1 hex, 1 = 7 hexes, 2 = 19 hexes
     this.revealedHexSet = new Set();
@@ -112,6 +114,7 @@ class ChultMapApp {
 
     // Initialisation
     this.initDOM();
+    this.applyRole();
     this.initHexGrid();
     this.renderPoiPatches();
     this.initPoiLabels();
@@ -359,7 +362,7 @@ class ChultMapApp {
 
   loadState() {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
+      const saved = this.role === 'player' ? null : localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const data = JSON.parse(saved);
         if (Array.isArray(data.revealedHexes)) {
@@ -376,6 +379,7 @@ class ChultMapApp {
   }
 
   saveState() {
+    if (this.role === 'player') return; // la page joueur n'écrit aucune sauvegarde
     try {
       const saveObj = {
         version: 1,
@@ -393,6 +397,24 @@ class ChultMapApp {
     } catch (err) {
       console.warn('Erreur de sauvegarde localStorage:', err);
     }
+    if (this.session) this.session.broadcast(); // MJ : tout changement d'état part aux joueurs
+  }
+
+  // État partagé avec les joueurs : cases révélées et position du groupe
+  getSnapshot() {
+    return {
+      revealedHexes: Array.from(this.revealedHexSet),
+      partyHex: `${this.partyHex.q},${this.partyHex.r}`
+    };
+  }
+
+  // Page joueur : remplace l'état par l'instantané reçu du MJ (aucune sauvegarde locale)
+  applySnapshot(snapshot, isFirst) {
+    this.revealedHexSet = new Set(snapshot.revealedHexes);
+    this.partyHex = snapshot.partyHex ? this.parsePartyHex(snapshot.partyHex) : this.getPartyStartHex();
+    this.renderParty();
+    this.syncMaskHoles();
+    this.syncPois(isFirst); // le premier instantané est silencieux, les suivants notifient les lieux découverts
   }
 
   syncMaskHoles() {
@@ -999,10 +1021,18 @@ class ChultMapApp {
     });
   }
 
+  // Classes du <body> : mode d'affichage (MJ / joueur) et rôle de la page (joueur = lecture seule)
+  applyRole() {
+    document.body.classList.toggle('role-player', this.role === 'player');
+    document.body.classList.toggle('mode-player', this.mode === 'player');
+    document.body.classList.toggle('mode-mj', this.mode === 'mj');
+  }
+
   setMode(newMode) {
+    if (this.role === 'player') return; // la page joueur reste en mode projection
     this.mode = newMode;
     this.renderHover(null, false);
-    document.body.className = `mode-${newMode}`;
+    this.applyRole();
     this.modeMjBtn.classList.toggle('active', newMode === 'mj');
     this.modePlayerBtn.classList.toggle('active', newMode === 'player');
 
@@ -1192,6 +1222,7 @@ class ChultMapApp {
   }
 
   exportSaveFile() {
+    if (this.role === 'player') return;
     const saveObj = {
       title: 'Sauvegarde Carte Chult - Tomb of Annihilation',
       version: 1,
@@ -1218,6 +1249,7 @@ class ChultMapApp {
   }
 
   handleFileImport(e) {
+    if (this.role === 'player') return;
     const file = e.target.files && e.target.files[0];
     if (!file) return;
 
@@ -1245,6 +1277,7 @@ class ChultMapApp {
   }
 
   resetMap() {
+    if (this.role === 'player') return;
     this.revealedHexSet.clear();
     this.partyHex = this.getPartyStartHex();
     this.renderParty();
@@ -1255,6 +1288,7 @@ class ChultMapApp {
   }
 
   revealAllHexes() {
+    if (this.role === 'player') return;
     this.allHexMap.forEach((hex, key) => {
       this.revealedHexSet.add(key);
     });
@@ -1265,6 +1299,7 @@ class ChultMapApp {
   }
 
   hideAllHexes() {
+    if (this.role === 'player') return;
     this.revealedHexSet.clear();
     this.partyHex = this.getPartyStartHex();
     this.renderParty();
@@ -1309,11 +1344,4 @@ class ChultMapApp {
   }
 }
 
-// Démarrage automatique dès que le DOM est prêt
-if (document.readyState === 'loading') {
-  window.addEventListener('DOMContentLoaded', () => {
-    window.chultApp = new ChultMapApp();
-  });
-} else {
-  window.chultApp = new ChultMapApp();
-}
+// Démarrage : voir landing.js (écran d'accueil, création de l'application selon le rôle)

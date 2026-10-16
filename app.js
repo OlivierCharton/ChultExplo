@@ -107,6 +107,8 @@ class ChultMapApp {
 
     // Jeton du groupe
     this.partyHex = this.getPartyStartHex();
+    this.partyDrag = null; // { pointerId, from } pendant un glissement
+    this.suppressNextClick = false;
 
     // Initialisation
     this.initDOM();
@@ -251,6 +253,72 @@ class ChultMapApp {
   }
 
   // Centre le jeton sur un point de la carte
+  initPartyEvents() {
+    const token = this.partyToken;
+    const isActive = (e) => this.partyDrag && e.pointerId === this.partyDrag.pointerId;
+
+    token.addEventListener('pointerdown', (e) => {
+      if (this.mode !== 'mj' || e.button !== 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+      try { token.setPointerCapture(e.pointerId); } catch (err) { /* pointeur synthétique */ }
+      this.partyDrag = { pointerId: e.pointerId, from: { ...this.partyHex } };
+      this.renderHover(null, false);
+      token.classList.add('dragging');
+    });
+
+    token.addEventListener('pointermove', (e) => {
+      if (!isActive(e)) return;
+      const { x, y } = this.eventToMapPoint(e);
+      this.placePartyToken(x, y);
+    });
+
+    token.addEventListener('pointerup', (e) => {
+      if (!isActive(e)) return;
+      const { x, y } = this.eventToMapPoint(e);
+      this.endPartyDrag(HexGeometry.hexAt(x, y));
+    });
+
+    token.addEventListener('pointercancel', (e) => {
+      if (!isActive(e)) return;
+      this.endPartyDrag(null);
+    });
+
+    // Un glissement du jeton ne doit pas déplacer la carte (souris et tactile)
+    token.addEventListener('mousedown', (e) => e.stopPropagation());
+    token.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
+  }
+
+  // Fin du glissement : `hex` est la case d'arrivée, ou null pour annuler
+  endPartyDrag(hex) {
+    const drag = this.partyDrag;
+    this.partyDrag = null;
+    this.partyToken.classList.remove('dragging');
+
+    // Le click qui suit le relâchement ne doit pas déclencher d'outil sur la case d'arrivée
+    this.suppressNextClick = true;
+    setTimeout(() => { this.suppressNextClick = false; }, 50);
+
+    if (!hex || !HexGeometry.isInMap(hex.q, hex.r)) {
+      this.partyHex = drag.from;
+      this.renderParty();
+      return;
+    }
+    this.moveParty(hex.q, hex.r);
+  }
+
+  // Déplace le groupe ; révèle la case d'arrivée si elle est sous le voile
+  moveParty(q, r) {
+    this.partyHex = { q, r };
+    this.renderParty();
+    const key = `${q},${r}`;
+    if (this.fogKeys.has(key) && !this.revealedHexSet.has(key)) {
+      this.revealHex(q, r); // met à jour masque, lieux et sauvegarde
+    } else {
+      this.saveState();
+    }
+  }
+
   placePartyToken(cx, cy) {
     this.partyToken.setAttribute('width', TOKEN_SIZE);
     this.partyToken.setAttribute('height', TOKEN_SIZE);
@@ -710,7 +778,13 @@ class ChultMapApp {
       }
     });
 
+    this.initPartyEvents();
+
     this.svg.addEventListener('click', (e) => {
+      if (this.suppressNextClick) {
+        this.suppressNextClick = false;
+        return;
+      }
       if (this.hasDragged) return;
       const hex = this.eventToHex(e);
       if (!hex) return;
@@ -727,7 +801,7 @@ class ChultMapApp {
     });
 
     this.svg.addEventListener('mousemove', (e) => {
-      if (this.isDragging) {
+      if (this.isDragging || this.partyDrag) {
         this.renderHover(null, false);
         return;
       }
@@ -976,10 +1050,17 @@ class ChultMapApp {
   }
 
   // Case du brouillard sous la souris (null si hors brouillard), calculée sans polygone
-  eventToHex(e) {
+  // Point de la carte (coordonnées image) sous un événement souris ou pointeur
+  eventToMapPoint(e) {
     const rect = this.viewport.getBoundingClientRect();
-    const x = (e.clientX - rect.left - this.panX) / this.zoom;
-    const y = (e.clientY - rect.top - this.panY) / this.zoom;
+    return {
+      x: (e.clientX - rect.left - this.panX) / this.zoom,
+      y: (e.clientY - rect.top - this.panY) / this.zoom
+    };
+  }
+
+  eventToHex(e) {
+    const { x, y } = this.eventToMapPoint(e);
     const { q, r } = HexGeometry.hexAt(x, y);
     const key = `${q},${r}`;
     return this.fogKeys.has(key) ? { q, r, key } : null;

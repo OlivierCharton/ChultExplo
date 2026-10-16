@@ -319,3 +319,22 @@ test('PeerJS : une connexion ouverte à temps ne déclenche pas le délai', asyn
   assert.equal(peer.destroyed, false);
   assert.ok(conn);
 });
+
+test('PeerJS : host sans réponse du courtier rejette avec timeout et détruit le pair', async () => {
+  const transport = createPeerJsTransport(FakePeer, undefined, { hostTimeoutMs: 30 });
+  const p = transport.host('chult-explo-1234');
+  const peer = FakePeer.last;
+  await assert.rejects(p, { type: 'timeout' });
+  assert.equal(peer.destroyed, true);
+});
+
+test('PeerJS : host ouvert à temps ne déclenche pas le délai', async () => {
+  const transport = createPeerJsTransport(FakePeer, undefined, { hostTimeoutMs: 30 });
+  const p = transport.host('chult-explo-1234');
+  const peer = FakePeer.last;
+  peer.emit('open');
+  const handle = await p;
+  await wait(80);
+  assert.equal(peer.destroyed, false);
+  assert.ok(handle);
+});

@@ -7,7 +7,7 @@ Carte interactive de Chult (Tomb of Annihilation) avec brouillard de guerre hexa
 1. Ouvrir la page : un écran d'accueil propose deux choix.
 2. **Créer une session MJ** : la version MJ s'ouvre et affiche un code à 4 chiffres en haut de l'écran (bouton pour le copier).
 3. **Rejoindre en tant que joueur** (sur un autre PC) : saisir le code. La carte s'affiche en lecture seule et suit en direct les cases révélées, les lieux découverts et le jeton du groupe. Chaque joueur règle librement son zoom et sa position.
-4. Si le MJ recharge sa page, il reprend le même code et les joueurs se reconnectent tout seuls.
+4. Si le MJ recharge sa page, il retrouve le même code en recliquant sur « Créer une session MJ » dans le même navigateur ; les joueurs se reconnectent tout seuls. Après une coupure réseau, le bouton « Réessayer » reprend le même code (jusqu'à 90 secondes) pour que les joueurs se reconnectent.
 
 Sans internet, le MJ peut travailler en local (bandeau « Hors ligne »). Pour tester deux onglets d'un même navigateur sans réseau, ajouter `?transport=local` à l'adresse des deux pages.
 

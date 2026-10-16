@@ -206,7 +206,7 @@
   // ---------------------------------------------------------------------------
   // PeerJS : adaptateur sur la bibliothèque (classe Peer)
   // ---------------------------------------------------------------------------
-  function createPeerJsTransport(PeerClass, peerOptions, { connectTimeoutMs = 8000 } = {}) {
+  function createPeerJsTransport(PeerClass, peerOptions, { connectTimeoutMs = 8000, hostTimeoutMs = 15000 } = {}) {
     // Les données reçues avant l'enregistrement du gestionnaire sont conservées puis rejouées.
     // Une erreur de connexion est traitée comme une fermeture (rappels appelés une seule fois).
     function wrapConnection(conn, afterClose) {
@@ -269,7 +269,17 @@
           const disconnectedCbs = [];
           let opened = false;
           let closing = false;
+          let timedOut = false;
+          // Courtier muet : on abandonne au lieu de rester indéfiniment en attente
+          const timer = setTimeout(() => {
+            if (opened) return;
+            timedOut = true;
+            peer.destroy();
+            reject({ type: 'timeout' });
+          }, hostTimeoutMs);
           peer.on('open', () => {
+            if (timedOut) return;
+            clearTimeout(timer);
             opened = true;
             resolve({
               onConnection(cb) { connectionCbs.push(cb); },
@@ -290,7 +300,8 @@
             if (!closing) disconnectedCbs.forEach((cb) => cb());
           });
           peer.on('error', (err) => {
-            if (opened) return;
+            if (opened || timedOut) return;
+            clearTimeout(timer);
             peer.destroy();
             reject(err && err.type === 'unavailable-id' ? { code: 'unavailable-id' } : err);
           });

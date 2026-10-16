@@ -126,21 +126,30 @@
       this.onPlayers(0);
     }
 
-    async doStart({ preferredCode } = {}) {
+    async doStart({ preferredCode, persistent = false } = {}) {
       this.stopped = false;
       this.closeHandle();
       this.clearPlayers();
       this.setStatus('connecting');
       let result = null;
       try {
-        if (protocol.isValidCode(preferredCode)) {
-          for (let attempt = 0; attempt < 3 && !result; attempt++) {
+        if (persistent && protocol.isValidCode(preferredCode)) {
+          // Reprise : on garde le même code (les joueurs le connaissent), jusqu'à 90 s, sans jamais en tirer un autre
+          for (let attempt = 0; attempt < 45 && !result; attempt++) {
             result = await this.tryHost(preferredCode);
-            if (!result && attempt < 2) await this.wait(2000);
+            if (!result) await this.wait(2000);
           }
-        }
-        for (let attempt = 0; attempt < 10 && !result; attempt++) {
-          result = await this.tryHost(protocol.generateCode(this.random));
+          if (!result) throw new Error('Code de session toujours occupé.');
+        } else {
+          if (protocol.isValidCode(preferredCode)) {
+            for (let attempt = 0; attempt < 3 && !result; attempt++) {
+              result = await this.tryHost(preferredCode);
+              if (!result && attempt < 2) await this.wait(2000);
+            }
+          }
+          for (let attempt = 0; attempt < 10 && !result; attempt++) {
+            result = await this.tryHost(protocol.generateCode(this.random));
+          }
         }
       } catch (err) {
         this.setStatus('offline');
@@ -160,7 +169,7 @@
     }
 
     retry() {
-      return this.start({ preferredCode: this.code });
+      return this.start({ preferredCode: this.code, persistent: true });
     }
 
     snapshotMessage() {

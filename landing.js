@@ -54,6 +54,7 @@
 
   // ----- Rôle MJ -----
   function startAsMj() {
+    cancelJoin();
     showApp();
     const mjApp = new ChultMapApp({ role: 'mj' });
     window.chultApp = mjApp;
@@ -70,15 +71,17 @@
       if (host.status === 'online' && host.code) {
         setIndicator('online', `Session ${host.code} · ${players} joueur${players > 1 ? 's' : ''}`, { copy: true });
       } else if (host.status === 'connecting') {
-        setIndicator('pending', 'Création de la session…');
+        setIndicator('pending', host.code ? `Reprise de la session ${host.code}…` : 'Création de la session…');
       } else {
         setIndicator('offline', 'Hors ligne : les joueurs ne peuvent pas rejoindre', { retry: true });
       }
     }
 
     function startHost() {
-      host.start({ preferredCode: host.code || readStoredCode() })
-        .then((code) => storeCode(code))
+      // Reprise d'une session déjà créée : même code, sans jamais en tirer un autre
+      const started = host.code ? host.retry() : host.start({ preferredCode: readStoredCode() });
+      started
+        .then((code) => { if (code) storeCode(code); })
         .catch((err) => console.warn('Session indisponible :', err));
     }
 
@@ -97,6 +100,14 @@
     else setIndicator('pending', 'Connexion…');
   }
 
+  let currentClient = null; // jonction en cours ou active : une jonction annulée ne doit rien construire
+
+  function cancelJoin() {
+    if (currentClient) currentClient.leave();
+    currentClient = null;
+    joinConfirm.disabled = false;
+  }
+
   function onJoin(event) {
     event.preventDefault();
     const code = joinInput.value.trim();
@@ -113,6 +124,7 @@
       parse: (message) => SessionProtocol.parseSnapshot(message, { fogKeys, isInMap: HexGeometry.isInMap }),
       onSnapshot: (snapshot, isFirst) => {
         if (!playerApp) {
+          if (client !== currentClient) return; // jonction annulée ou remplacée
           showApp();
           playerApp = new ChultMapApp({ role: 'player' });
           playerApp.session = client;
@@ -124,7 +136,11 @@
       onStatus: (status) => { if (playerApp) renderPlayerIndicator(status); }
     });
 
+    cancelJoin();
+    currentClient = client;
+    joinConfirm.disabled = true;
     client.join(code).catch(() => {
+      if (client !== currentClient) return; // annulée : l'état de l'écran n'est plus le sien
       joinConfirm.disabled = false;
       joinError.textContent = 'Aucune session avec ce code.';
     });
@@ -137,6 +153,7 @@
     joinInput.focus();
   });
   $('btn-join-back').addEventListener('click', () => {
+    cancelJoin();
     joinForm.hidden = true;
     choices.hidden = false;
     joinError.textContent = '';

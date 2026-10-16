@@ -351,3 +351,69 @@ test('l\'écouteur onDisconnected d\'un ancien handle est sans effet après retr
   old.simulateDisconnect();
   assert.equal(host.status, 'online');
 });
+
+// Transport dont l'identifiant reste « occupé » (courtier qui garde l'ancien pair) tant que blocked.value est vrai
+function createStickyTransport() {
+  const inner = createLoopbackTransport();
+  const blocked = { value: false };
+  const hosted = [];
+  return {
+    blocked,
+    hosted,
+    host(id) {
+      hosted.push(id);
+      if (blocked.value) return Promise.reject({ code: 'unavailable-id' });
+      return inner.host(id);
+    },
+    connect: (id) => inner.connect(id)
+  };
+}
+
+test('retry persistant : reprend le même code libéré après environ 20 s', async () => {
+  const transport = createStickyTransport();
+  const scheduler = createFakeScheduler();
+  const host = new SessionHost(transport, { getSnapshot: () => ({ revealedHexes: [], partyHex: null }), scheduler });
+  const code = await host.start();
+  transport.hosted.length = 0;
+  transport.blocked.value = true;
+  let result;
+  const retried = host.retry().then((c) => { result = c; });
+  for (let i = 0; i < 10; i++) { await tick(); scheduler.advance(2000); }
+  await tick();
+  assert.equal(result, undefined);
+  assert.equal(host.status, 'connecting');
+  transport.blocked.value = false;
+  scheduler.advance(2000);
+  await retried;
+  assert.equal(result, code);
+  assert.equal(host.status, 'online');
+  assert.ok(transport.hosted.every((id) => id === peerIdFor(code)));
+});
+
+test('retry persistant : code jamais libéré, rejet à 90 s sans autre identifiant', async () => {
+  const transport = createStickyTransport();
+  const scheduler = createFakeScheduler();
+  const host = new SessionHost(transport, { getSnapshot: () => ({ revealedHexes: [], partyHex: null }), scheduler });
+  const code = await host.start();
+  transport.hosted.length = 0;
+  transport.blocked.value = true;
+  const retried = host.retry();
+  const outcome = retried.then(() => 'ok', (err) => err);
+  for (let i = 0; i < 45; i++) { await tick(); scheduler.advance(2000); }
+  const err = await outcome;
+  assert.match(err.message, /Code de session toujours occupé\./);
+  assert.equal(host.status, 'offline');
+  assert.equal(host.code, code);
+  assert.equal(transport.hosted.length, 45);
+  assert.ok(transport.hosted.every((id) => id === peerIdFor(code)));
+});
+
+test('deux start() simultanés partagent la même promesse et un seul hébergement', async () => {
+  const transport = createStickyTransport();
+  const host = new SessionHost(transport, { getSnapshot: () => ({ revealedHexes: [], partyHex: null }), scheduler: createFakeScheduler() });
+  const a = host.start();
+  const b = host.start();
+  assert.equal(a, b);
+  await a;
+  assert.equal(transport.hosted.length, 1);
+});

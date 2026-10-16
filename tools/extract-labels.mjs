@@ -4,11 +4,13 @@
  *  - Assets/labels/<id>-patch.png (rustine de texture qui recouvre le texte)
  *  - labels-data.js               (const POI_LABELS = { id: { x, y, w, h } })
  *  - Assets/labels-check-N.png    (planches de contrôle, ignorées par git)
+ * Une entrée portant "skip": true (texte déjà lisible sur la carte vierge) n'est pas découpée :
+ * ni image, ni entrée dans labels-data.js, ni ligne de contrôle ; ses PNG éventuels sont supprimés.
  * Usage : npm run labels
  */
 import sharp from 'sharp';
 import { createRequire } from 'node:module';
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -39,6 +41,11 @@ for (const id of ids.sort()) {
   const b = boxes[id];
   if (b.x < 0 || b.y < 0 || b.w <= 0 || b.h <= 0 || b.x + b.w > GRID.width || b.y + b.h > GRID.height) {
     throw new Error(`Rectangle hors de la carte pour ${id} : ${JSON.stringify(b)}`);
+  }
+  if (b.skip) {
+    for (const suffix of ['text', 'patch']) rmSync(path.join(root, 'Assets', 'labels', `${id}-${suffix}.png`), { force: true });
+    console.log(`${id} : ignoré (texte déjà lisible sur la carte vierge)`);
+    continue;
   }
   const left = Math.max(0, b.x - PAD), top = Math.max(0, b.y - PAD);
   const right = Math.min(GRID.width, b.x + b.w + PAD), bottom = Math.min(GRID.height, b.y + b.h + PAD);
@@ -92,4 +99,4 @@ for (let i = 0, n = 1; i < rows.length; i += PER_SHEET, n++) {
   await sharp({ create: { width: w, height: h, channels: 3, background: 'white' } })
     .composite(comp).png().toFile(path.join(root, 'Assets', `labels-check-${n}.png`));
 }
-console.log(`${ids.length} lieux écrits ; planches : Assets/labels-check-*.png`);
+console.log(`${Object.keys(data).length} lieux écrits (${ids.length - Object.keys(data).length} ignorés) ; planches : Assets/labels-check-*.png`);

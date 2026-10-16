@@ -20,7 +20,7 @@ Un lieu est **découvert** si sa case centrale (`centerHex`) est hors brouillard
 
 ### 1. Découpe des libellés (hors ligne)
 
-`tools/label-boxes.json` : pour chacun des 26 lieux, un rectangle en pixels de la carte (6563 × 8925) `{ "x", "y", "w", "h" }` qui englobe le symbole et le texte du lieu, sans autre lieu. Fichier écrit à la main à partir de la carte, validé sur l'image de contrôle.
+`tools/label-boxes.json` : pour chacun des 26 lieux, un rectangle en pixels de la carte (6563 × 8925) `{ "x", "y", "w", "h" }` qui englobe le symbole et le texte du lieu, sans autre lieu. Fichier écrit à la main à partir de la carte, validé sur l'image de contrôle. Les lieux dont le texte est déjà lisible sur la carte vierge portent `"skip": true` dans `tools/label-boxes.json` et n'ont ni découpe ni rustine.
 
 `tools/extract-labels.mjs` (Node + `sharp`, lancé par `npm run labels`) lit `carte-complete.jpg` et produit, pour chaque lieu :
 - `Assets/labels/<id>-text.png` : le libellé et le symbole, en RGBA, fond transparent. L'alpha vaut 1 sur les pixels « texte » et 0 ailleurs.

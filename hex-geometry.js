@@ -65,6 +65,12 @@
     return best;
   }
 
+  // La case figure-t-elle sur la carte (centre dans l'image) ?
+  function isInMap(q, r) {
+    const { cx, cy } = getCenter(q, r);
+    return cx >= 0 && cx <= GRID.width && cy >= 0 && cy <= GRID.height;
+  }
+
   function enumerateHexes() {
     const hexes = [];
     for (let q = 0; ; q++) {
@@ -79,5 +85,5 @@
     return hexes;
   }
 
-  return { GRID, getCenter, getPoints, containsPoint, hexAt, enumerateHexes };
+  return { GRID, getCenter, getPoints, containsPoint, hexAt, isInMap, enumerateHexes };
 });

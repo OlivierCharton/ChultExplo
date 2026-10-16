@@ -18,6 +18,9 @@ const MAP_CONFIG = {
 // 4. Clé de stockage LocalStorage
 const STORAGE_KEY = 'chult_explo_save_v1';
 
+// 5. Jeton du groupe : diamètre sur la carte (px), inférieur au cercle inscrit d'une case (√3·R ≈ 96,4)
+const TOKEN_SIZE = 88;
+
 /**
  * Moteur Géométrique Hexagonal (Flat-Topped)
  */
@@ -102,12 +105,18 @@ class ChultMapApp {
     // Hover cache
     this.hoveredHex = null;
 
+    // Jeton du groupe
+    this.partyHex = this.getPartyStartHex();
+    this.partyDrag = null; // { pointerId, from } pendant un glissement
+    this.suppressNextClick = false;
+
     // Initialisation
     this.initDOM();
     this.initHexGrid();
     this.renderPoiPatches();
     this.initPoiLabels();
     this.loadState();
+    this.renderParty();
     this.initEvents();
     this.fitToScreen();
     this.updateStats();
@@ -128,6 +137,7 @@ class ChultMapApp {
     this.poiLayer = document.getElementById('poi-layer');
     this.poiPatchesLayer = document.getElementById('poi-patches-layer');
     this.poiLabelsLayer = document.getElementById('poi-labels-layer');
+    this.partyToken = document.getElementById('party-token');
 
     // Toolbar & Panels
     this.toolbar = document.getElementById('toolbar');
@@ -223,6 +233,130 @@ class ChultMapApp {
     }
   }
 
+  // Position de départ du groupe : la case de Port Nyanzaru
+  getPartyStartHex() {
+    const { q, r } = this.pois['port-nyanzaru'].centerHex;
+    return { q, r };
+  }
+
+  // "q,r" -> { q, r } si la case est sur la carte, sinon la position de départ
+  parsePartyHex(value) {
+    if (typeof value === 'string') {
+      const m = /^(-?\d+),(-?\d+)$/.exec(value);
+      if (m) {
+        const q = parseInt(m[1], 10);
+        const r = parseInt(m[2], 10);
+        if (HexGeometry.isInMap(q, r)) return { q, r };
+      }
+    }
+    return this.getPartyStartHex();
+  }
+
+  // Glisser-déposer du jeton (Mode MJ)
+  initPartyEvents() {
+    const token = this.partyToken;
+    const isActive = (e) => this.partyDrag && e.pointerId === this.partyDrag.pointerId;
+
+    token.addEventListener('pointerdown', (e) => {
+      if (this.mode !== 'mj' || e.button !== 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+      try { token.setPointerCapture(e.pointerId); } catch (err) { /* pointeur synthétique */ }
+      this.hasDragged = false; // le preventDefault supprime le mousedown qui le remet à faux
+      this.partyDrag = {
+        pointerId: e.pointerId,
+        from: { ...this.partyHex },
+        startX: e.clientX,
+        startY: e.clientY,
+        moved: false
+      };
+      this.renderHover(null, false);
+      token.classList.add('dragging');
+    });
+
+    token.addEventListener('pointermove', (e) => {
+      if (!isActive(e)) return;
+      const drag = this.partyDrag;
+      if (!drag.moved) {
+        // Seuil de 4 px : en dessous, c'est un simple clic sur le jeton
+        if (Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) < 4) return;
+        drag.moved = true;
+      }
+      const { x, y } = this.eventToMapPoint(e);
+      this.placePartyToken(x, y);
+    });
+
+    token.addEventListener('pointerup', (e) => {
+      if (!isActive(e)) return;
+      if (!this.partyDrag.moved) {
+        // Simple clic : pas de déplacement, le click natif applique l'outil
+        this.partyDrag = null;
+        token.classList.remove('dragging');
+        this.renderParty();
+        return;
+      }
+      const { x, y } = this.eventToMapPoint(e);
+      this.endPartyDrag(HexGeometry.hexAt(x, y));
+    });
+
+    token.addEventListener('pointercancel', (e) => {
+      if (!isActive(e)) return;
+      this.endPartyDrag(null);
+    });
+
+    token.addEventListener('lostpointercapture', (e) => {
+      if (isActive(e)) this.endPartyDrag(null);
+    });
+
+    // Un glissement du jeton ne doit pas déplacer la carte (souris et tactile)
+    token.addEventListener('mousedown', (e) => e.stopPropagation());
+    token.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
+  }
+
+  // Fin du glissement : `hex` est la case d'arrivée, ou null pour annuler
+  endPartyDrag(hex) {
+    const drag = this.partyDrag;
+    this.partyDrag = null;
+    this.partyToken.classList.remove('dragging');
+
+    // Le click qui suit le relâchement ne doit pas déclencher d'outil sur la case d'arrivée
+    this.suppressNextClick = true;
+    setTimeout(() => { this.suppressNextClick = false; }, 50);
+
+    if (!hex || !HexGeometry.isInMap(hex.q, hex.r)) {
+      this.partyHex = drag.from;
+      this.renderParty();
+      return;
+    }
+    this.moveParty(hex.q, hex.r);
+  }
+
+  // Déplace le groupe ; révèle la case d'arrivée si elle est sous le voile
+  moveParty(q, r) {
+    this.partyHex = { q, r };
+    this.renderParty();
+    const key = `${q},${r}`;
+    if (this.fogKeys.has(key) && !this.revealedHexSet.has(key)) {
+      this.revealHex(q, r); // met à jour masque, lieux et sauvegarde
+    } else {
+      this.saveState();
+    }
+  }
+
+  // Centre le jeton sur un point de la carte
+  placePartyToken(cx, cy) {
+    this.partyToken.setAttribute('width', TOKEN_SIZE);
+    this.partyToken.setAttribute('height', TOKEN_SIZE);
+    this.partyToken.setAttribute('x', cx - TOKEN_SIZE / 2);
+    this.partyToken.setAttribute('y', cy - TOKEN_SIZE / 2);
+  }
+
+  // Centre le jeton sur la case du groupe
+  renderParty() {
+    const { cx, cy } = HexMath.getCenter(this.partyHex.q, this.partyHex.r);
+    this.placePartyToken(cx, cy);
+  }
+
   loadState() {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -231,6 +365,7 @@ class ChultMapApp {
         if (Array.isArray(data.revealedHexes)) {
           this.revealedHexSet = new Set(data.revealedHexes.filter(k => this.fogKeys.has(k)));
         }
+        this.partyHex = this.parsePartyHex(data.partyHex);
       }
     } catch (err) {
       console.warn('Impossible de charger la sauvegarde:', err);
@@ -246,6 +381,7 @@ class ChultMapApp {
         version: 1,
         date: new Date().toISOString(),
         revealedHexes: Array.from(this.revealedHexSet),
+        partyHex: `${this.partyHex.q},${this.partyHex.r}`,
         revealedPois: Object.entries(this.pois).filter(([_, p]) => p.revealed).map(([k]) => k),
         stats: {
           revealedCount: this.getExploredCount(),
@@ -667,7 +803,13 @@ class ChultMapApp {
       }
     });
 
+    this.initPartyEvents();
+
     this.svg.addEventListener('click', (e) => {
+      if (this.suppressNextClick) {
+        this.suppressNextClick = false;
+        return;
+      }
       if (this.hasDragged) return;
       const hex = this.eventToHex(e);
       if (!hex) return;
@@ -684,7 +826,7 @@ class ChultMapApp {
     });
 
     this.svg.addEventListener('mousemove', (e) => {
-      if (this.isDragging) {
+      if (this.isDragging || this.partyDrag) {
         this.renderHover(null, false);
         return;
       }
@@ -932,11 +1074,18 @@ class ChultMapApp {
     this.hudPoi.textContent = 'Lieu: Aucun';
   }
 
+  // Point de la carte (coordonnées image) sous un événement souris ou pointeur
+  eventToMapPoint(e) {
+    const rect = this.viewport.getBoundingClientRect();
+    return {
+      x: (e.clientX - rect.left - this.panX) / this.zoom,
+      y: (e.clientY - rect.top - this.panY) / this.zoom
+    };
+  }
+
   // Case du brouillard sous la souris (null si hors brouillard), calculée sans polygone
   eventToHex(e) {
-    const rect = this.viewport.getBoundingClientRect();
-    const x = (e.clientX - rect.left - this.panX) / this.zoom;
-    const y = (e.clientY - rect.top - this.panY) / this.zoom;
+    const { x, y } = this.eventToMapPoint(e);
     const { q, r } = HexGeometry.hexAt(x, y);
     const key = `${q},${r}`;
     return this.fogKeys.has(key) ? { q, r, key } : null;
@@ -1048,6 +1197,7 @@ class ChultMapApp {
       version: 1,
       date: new Date().toISOString(),
       revealedHexes: Array.from(this.revealedHexSet),
+      partyHex: `${this.partyHex.q},${this.partyHex.r}`,
       revealedPois: Object.entries(this.pois).filter(([_, p]) => p.revealed).map(([k]) => k),
       stats: {
         revealedCount: this.getExploredCount(),
@@ -1077,6 +1227,8 @@ class ChultMapApp {
         const data = JSON.parse(evt.target.result);
         if (Array.isArray(data.revealedHexes)) {
           this.revealedHexSet = new Set(data.revealedHexes.filter(k => this.fogKeys.has(k)));
+          this.partyHex = this.parsePartyHex(data.partyHex);
+          this.renderParty();
           this.syncMaskHoles();
           this.syncPois();
           this.saveState();
@@ -1094,6 +1246,8 @@ class ChultMapApp {
 
   resetMap() {
     this.revealedHexSet.clear();
+    this.partyHex = this.getPartyStartHex();
+    this.renderParty();
     this.syncMaskHoles();
     this.syncPois();
     this.saveState();
@@ -1112,6 +1266,8 @@ class ChultMapApp {
 
   hideAllHexes() {
     this.revealedHexSet.clear();
+    this.partyHex = this.getPartyStartHex();
+    this.renderParty();
     this.syncMaskHoles();
     this.syncPois();
     this.saveState();

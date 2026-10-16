@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { GRID, getCenter, getPoints, containsPoint, enumerateHexes, hexAt } = require('../hex-geometry.js');
+const { GRID, getCenter, getPoints, containsPoint, enumerateHexes, hexAt, isInMap } = require('../hex-geometry.js');
 
 const near = (a, b, eps = 0.1) => assert.ok(Math.abs(a - b) <= eps, `${a} != ${b}`);
 
@@ -80,6 +80,24 @@ test('hexAt place chaque point d\'une grille d\'essai dans l\'hexagone de la cas
       const { q, r } = hexAt(x, y);
       const { cx, cy } = getCenter(q, r);
       assert.equal(containsPoint(cx, cy, x, y), true, `(${x},${y}) -> ${q},${r}`);
+    }
+  }
+});
+
+test('isInMap accepte les cases de la carte et refuse celles hors image', () => {
+  assert.equal(isInMap(0, 0), true);
+  assert.equal(isInMap(43, 23), true);   // Port Nyanzaru
+  assert.equal(isInMap(-1, 0), false);   // centre à gauche de l'image
+  assert.equal(isInMap(78, 0), false);   // centre à droite de l'image
+  assert.equal(isInMap(20, -1), false);  // centre au-dessus de l'image
+  assert.equal(isInMap(20, 93), false);  // centre sous l'image
+});
+
+test('isInMap est cohérent avec enumerateHexes', () => {
+  const inMap = new Set(enumerateHexes().map(h => `${h.q},${h.r}`));
+  for (let q = -2; q <= 80; q++) {
+    for (let r = -2; r <= 95; r++) {
+      assert.equal(isInMap(q, r), inMap.has(`${q},${r}`), `${q},${r}`);
     }
   }
 });

@@ -150,6 +150,24 @@ html, body {
   }
 }
 
+/* Jeton du groupe : aucun événement tant que le glisser-déposer n'est pas actif (Mode MJ) */
+.party-layer,
+#party-token {
+  pointer-events: none;
+}
+
+/* Mode MJ : le jeton se saisit et se déplace */
+.mode-mj #party-token {
+  pointer-events: all;
+  cursor: grab;
+  touch-action: none;
+  clip-path: circle(50% at 50% 50%);
+}
+
+.mode-mj #party-token.dragging {
+  cursor: grabbing;
+}
+
 /* Rustines et textes des lieux : jamais d'événement souris */
 .poi-label-layer {
   pointer-events: none;

@@ -24,7 +24,7 @@ const CHECK_PAD = 30;  // marge affichée sur les planches de contrôle
 const PER_SHEET = 5;
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const file = path.join(root, 'carte-complete.jpg');
+const file = path.join(root, 'Assets', 'carte-complete.jpg');
 const boxes = JSON.parse(readFileSync(path.join(root, 'tools', 'label-boxes.json'), 'utf8'));
 const ids = Object.keys(pointsOfInterest);
 

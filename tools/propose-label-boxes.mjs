@@ -33,7 +33,7 @@ if (existsSync(out) && !process.argv.includes('--force')) {
   console.error('Relance avec --force pour le remplacer : npm run labels:propose -- --force');
   process.exit(1);
 }
-const file = path.join(root, 'carte-complete.jpg');
+const file = path.join(root, 'Assets', 'carte-complete.jpg');
 const boxes = {};
 
 for (const [id, poi] of Object.entries(pointsOfInterest)) {

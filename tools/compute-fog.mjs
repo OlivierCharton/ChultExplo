@@ -1,6 +1,6 @@
 /**
- * Calcule les cases « brouillard » : celles où carte-vierge.jpg diffère de carte-complete.jpg
- * ET qui sont réellement voilées (fond plat) dans carte-vierge.jpg.
+ * Calcule les cases « brouillard » : celles où Assets/carte-vierge.jpg diffère de Assets/carte-complete.jpg
+ * ET qui sont réellement voilées (fond plat) dans Assets/carte-vierge.jpg.
  * Écrit fog-data.js (chargé par index.html) et Assets/fog-check.png (contrôle visuel).
  * Usage : npm run fog
  */
@@ -41,8 +41,8 @@ async function loadRaw(file) {
   return { data, channels: info.channels };
 }
 
-const complete = await loadRaw('carte-complete.jpg');
-const vierge = await loadRaw('carte-vierge.jpg');
+const complete = await loadRaw('Assets/carte-complete.jpg');
+const vierge = await loadRaw('Assets/carte-vierge.jpg');
 
 if (complete.channels !== vierge.channels) {
   throw new Error(`Nombre de canaux différent : ${complete.channels} (complète) contre ${vierge.channels} (vierge)`);
@@ -86,7 +86,7 @@ const polys = fog.map(h => poly(h, 'red')).join('') + visible.map(h => poly(h, '
 const outW = 1640;
 const outH = Math.round((GRID.height * outW) / GRID.width);
 const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${GRID.width} ${GRID.height}" width="${outW}" height="${outH}">${polys}</svg>`;
-await sharp(path.join(root, 'carte-complete.jpg'), { limitInputPixels: false })
+await sharp(path.join(root, 'Assets', 'carte-complete.jpg'), { limitInputPixels: false })
   .resize(outW, outH)
   .composite([{ input: Buffer.from(svg) }])
   .png()

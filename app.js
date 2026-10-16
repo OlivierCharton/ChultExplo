@@ -83,9 +83,9 @@ class ChultMapApp {
     this.pois = pointsOfInterest;
 
     // Options d'affichage
-    this.showGrid = true;
-    this.showDmGhosts = true;
-    this.showPoiLabels = true;
+    this.showGrid = false;
+    this.showDmGhosts = false;
+    this.showPoiLabels = false;
 
     // Pan & Zoom
     this.zoom = 0.2;
@@ -198,6 +198,7 @@ class ChultMapApp {
     });
 
     this.gridLinesLayer.appendChild(gridLinesFragment);
+    this.gridLinesLayer.classList.toggle('hidden', !this.showGrid);
 
     // Cases de légende : trous permanents dans le masque (carte complète), sans interaction.
     const visibleFragment = document.createDocumentFragment();
